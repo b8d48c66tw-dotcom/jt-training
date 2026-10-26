@@ -1,0 +1,154 @@
+// Shared UI plumbing: action registry, re-rendering, toast, small components, timer overlay.
+import { state, saveState } from './store.js';
+import { IntervalTimer, flatten, totalSec } from './timer.js';
+import * as U from './util.js';
+
+export const actions = {};
+export const on = (name, fn) => { actions[name] = fn; };
+export const ui = {}; // transient screen state (open panels, filters, timer results)
+
+let renderFn = () => {};
+export const setRenderer = (fn) => { renderFn = fn; };
+export function rerender(keepScroll = true) {
+  const y = window.scrollY;
+  renderFn();
+  if (keepScroll) window.scrollTo(0, y);
+}
+export const go = (hash) => { if (location.hash === hash) rerender(false); else location.hash = hash; };
+export async function commit(keepScroll = true) { rerender(keepScroll); await saveState(); }
+
+export function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+// ---- components ---------------------------------------------------------------------
+export const card = (inner, cls = '') => `<section class="card ${cls}">${inner}</section>`;
+export const STATUS_LABEL = { done: 'Done', missed: 'Missed', moved: 'Moved', skipped: 'Skipped', today: 'Today', planned: 'Planned', optional: 'Optional', unlogged: 'Not logged', past: 'Optional' };
+export const pill = (status, label) => `<span class="pill pill-${status}">${status === 'done' ? '&#10003; ' : ''}${U.esc(label || STATUS_LABEL[status] || status)}</span>`;
+
+export function scale(name, value, { min = 1, max = 10, label = '' } = {}) {
+  let b = '';
+  for (let i = min; i <= max; i++) b += `<button type="button" class="sc ${Number(value) === i ? 'on' : ''}" data-act="pick" data-name="${name}" data-val="${i}">${i}</button>`;
+  return `<div class="field"><span class="lbl">${U.esc(label)}</span><div class="scale">${b}</div><input type="hidden" name="${name}" value="${value ?? ''}"></div>`;
+}
+on('pick', (el) => {
+  const wrap = el.closest('.field');
+  wrap.querySelectorAll('.sc').forEach((b) => b.classList.toggle('on', b === el));
+  wrap.querySelector('input[type=hidden]').value = el.dataset.val;
+});
+
+export const field = (label, input, hint = '') =>
+  `<label class="field"><span class="lbl">${U.esc(label)}</span>${input}${hint ? `<span class="hint">${hint}</span>` : ''}</label>`;
+
+export function stat(label, value, sub = '') {
+  return `<div class="stat"><div class="stat-v">${value}</div><div class="stat-l">${U.esc(label)}</div>${sub ? `<div class="stat-s">${sub}</div>` : ''}</div>`;
+}
+
+export function formData(form) {
+  const o = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    if (el.type === 'checkbox') o[el.name] = el.checked;
+    else if (el.type === 'radio') { if (el.checked) o[el.name] = el.value; }
+    else o[el.name] = el.value;
+  }
+  return o;
+}
+
+// ---- timer overlay ----------------------------------------------------------------------
+const KIND_LABEL = { warm: 'Warm-up', cool: 'Cool-down', run: 'Run', walk: 'Walk', tempo: 'Tempo', jog: 'Jog', stride: 'Stride', hard: 'Hard', easy: 'Easy', rest: 'Rest', hold: 'Hold' };
+let active = null;
+
+export function openTimer({ title, segments, planId = null, onDoneHash = null }) {
+  const segs = flatten(segments);
+  const el = document.getElementById('timer');
+  const total = totalSec(segs);
+  const hasOpen = segs.some((s) => !s.s);
+  el.hidden = false;
+  document.body.classList.add('no-scroll');
+  el.className = 'timer k-ready';
+  el.innerHTML = `
+    <div class="t-top"><span class="t-title">${U.esc(title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
+    <div class="t-ready">
+      <div class="t-sum">${segs.length} steps${total ? ` - ${Math.round(total / 60)} min${hasOpen ? ' plus open-ended steps' : ''}` : ''}</div>
+      <ol class="t-list">${segs.slice(0, 40).map((s) => `<li><span>${U.esc(s.l)}${s.round ? ` (${s.round}/${s.rounds})` : ''}</span><b>${s.s ? U.fmtDuration(s.s) : 'tap Next'}</b></li>`).join('')}${segs.length > 40 ? '<li>...</li>' : ''}</ol>
+      <p class="t-note">Keep this screen open - it stays awake and beeps at each change. If the phone locks, the timer catches up when you unlock it.</p>
+      <button class="btn btn-xl btn-go" data-act="timer-start">Start</button>
+    </div>`;
+  active = { segs, title, planId, onDoneHash, timer: null };
+}
+
+function renderRunning(v) {
+  const el = document.getElementById('timer');
+  const s = v.seg;
+  if (v.finished) {
+    el.className = 'timer k-done';
+    el.innerHTML = `
+      <div class="t-top"><span class="t-title">${U.esc(active.title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
+      <div class="t-main"><div class="t-label">Done</div><div class="t-big">${U.fmtDuration(v.totalElapsed)}</div><div class="t-sub">total time</div></div>
+      <div class="t-ctrl"><button class="btn btn-xl btn-go" data-act="timer-log">Log it</button></div>`;
+    return;
+  }
+  // Build the layout once, then only update text so taps on the buttons are never lost.
+  if (!el.querySelector('.t-main.live')) {
+    el.innerHTML = `
+      <div class="t-top"><span class="t-title">${U.esc(active.title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
+      <div class="t-main live">
+        <div class="t-kind" data-r="kind"></div>
+        <div class="t-label" data-r="label"></div>
+        <div class="t-big" data-r="big"></div>
+        <div class="t-sub" data-r="sub"></div>
+        <div class="t-cue" data-r="cue"></div>
+        <div class="t-next" data-r="next"></div>
+      </div>
+      <div class="t-foot" data-r="foot"></div>
+      <div class="t-ctrl">
+        <button class="btn btn-lg" data-act="timer-prev" aria-label="Previous">&#9664;&#9664;</button>
+        <button class="btn btn-xl" data-act="timer-pause" data-r="pause"></button>
+        <button class="btn btn-lg" data-act="timer-next" aria-label="Next">&#9654;&#9654;</button>
+      </div>`;
+  }
+  const set = (r, text) => { const n = el.querySelector(`[data-r="${r}"]`); if (n.textContent !== text) n.textContent = text; };
+  el.className = `timer k-${s.k || 'run'}${v.paused ? ' paused' : ''}`;
+  set('kind', `${KIND_LABEL[s.k] || ''}${s.round ? ` - round ${s.round} of ${s.rounds}` : ''}`);
+  set('label', s.l || '');
+  set('big', s.s ? U.fmtDuration(Math.ceil(v.remaining)) : U.fmtDuration(v.elapsed));
+  set('sub', s.s ? '' : 'counting up - tap Next when done');
+  set('cue', s.cue || '');
+  set('next', v.next ? `Next: ${v.next.l}${v.next.s ? ` (${U.fmtDuration(v.next.s)})` : ''}` : 'Last step');
+  set('foot', `Step ${v.idx + 1} of ${v.count} - elapsed ${U.fmtDuration(v.totalElapsed)}${v.totalRemaining != null ? ` - about ${Math.ceil(v.totalRemaining / 60)} min left` : ''}`);
+  set('pause', v.paused ? 'Resume' : 'Pause');
+}
+
+on('timer-start', () => {
+  active.timer = new IntervalTimer(active.segs, { onTick: renderRunning });
+  active.timer.start();
+});
+on('timer-pause', () => { const t = active?.timer; if (!t) return; t.pausedAt == null ? t.pause() : t.resume(); });
+on('timer-next', () => active?.timer?.next());
+on('timer-prev', () => active?.timer?.prev());
+on('timer-close', () => {
+  const t = active?.timer;
+  if (t && t.running && !t.finished && !confirm('Stop the timer?')) return;
+  closeTimer();
+});
+on('timer-log', () => {
+  const t = active.timer;
+  ui.timerResult = { planId: active.planId, sec: Math.round(t.totalElapsed) };
+  const hash = active.onDoneHash;
+  closeTimer();
+  if (hash) go(hash);
+});
+function closeTimer() {
+  active?.timer?.stop();
+  active = null;
+  const el = document.getElementById('timer');
+  el.hidden = true;
+  el.className = '';
+  el.innerHTML = '';
+  document.body.classList.remove('no-scroll');
+}
