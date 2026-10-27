@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'jt-training-v1';
+const VERSION = 'jt-training-v3';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/core.js', './js/store.js', './js/seed.js', './js/plan.js', './js/util.js', './js/timer.js', './js/charts.js',
