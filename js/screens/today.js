@@ -177,7 +177,7 @@ export function renderToday(dateParam) {
   let sessions = items.map((i) => sessionCard(i, U.today())).join('');
   if (away) sessions += `<div class="note">${U.esc(P.sessionInfo(away.key, away.week).title)} moved to ${U.dayName(away.to)} ${U.fmtDate(away.to)}</div>`;
   if (!items.length && !away) sessions = card(n ? '<div class="kicker">Session</div><div class="hero-title">Rest day</div><p class="muted">Mobility and a walk if you feel like it.</p>' : `<p class="muted">Outside the 9-week program (${U.fmtDate(s.startDate)} - ${U.fmtDate(s.endDate)}).</p>`);
-  if (n && P.week(n).notes && U.dow(t) === 1) sessions += `<div class="note">${U.esc(P.week(n).notes)}</div>`;
+  if (n && P.week(n).notes && t === P.weekStart(n)) sessions += `<div class="note">${U.esc(P.week(n).notes)}</div>`;
   html += sessions;
 
   // Weight and goal tiles
@@ -191,7 +191,7 @@ export function renderToday(dateParam) {
   html += weighCard(t);
   html += mobilityCard(t);
   html += nutritionCard(t);
-  if (n && (U.dow(t) === 0 || U.dow(t) === 6)) {
+  if (n && U.diffDays(t, P.weekDays(n)[6]) <= 1) {
     html += card(`<h2>Weekly check-in</h2><p>Review week ${n}: weight trend, sessions, km and nutrition.</p><a class="btn btn-primary btn-block" href="#/checkin/${n}">Open week ${n} check-in</a>`);
   }
   html += card(`<h2>Bigger goal</h2><p>${U.esc(s.longTermGoal)}.</p>`, 'card-quiet');

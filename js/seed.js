@@ -3,7 +3,7 @@
 // editable from Settings > Edit program. Changing this file later does not
 // overwrite what is already on the phone.
 
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 // ---- helpers for building interval segments -------------------------------
 // Segment: { l: label, s: seconds (0 = open-ended, tap Next when done), k: kind }
@@ -21,8 +21,8 @@ const runWalk = (x, run, walk, dropLast = false) => ({
 export const settings = {
   name: 'Josh',
   heightCm: 175,
-  startDate: '2026-10-26',
-  endDate: '2026-12-27',
+  startDate: '2026-10-28',
+  endDate: '2026-12-29',
   goalDate: '2026-12-24',
   startWeight: 88,
   goalWeight: 82,
@@ -198,7 +198,7 @@ const weekNotes = {
 };
 export const weeks = Array.from({ length: 9 }, (_, i) => {
   const n = i + 1;
-  const start = new Date(2026, 9, 26 + i * 7);
+  const start = new Date(2026, 9, 28 + i * 7);
   const iso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   const phase = phaseFor(n);
   const rounds = n <= 3 ? 3 : n <= 8 ? 4 : 2;
@@ -208,10 +208,10 @@ export const weeks = Array.from({ length: 9 }, (_, i) => {
 });
 
 export const phases = [
-  { name: 'Rebuild', weeks: '1 - 3', dates: '26 Oct - 15 Nov' },
-  { name: 'Build', weeks: '4 - 6', dates: '16 Nov - 6 Dec' },
-  { name: 'Push', weeks: '7 - 8', dates: '7 Dec - 20 Dec' },
-  { name: 'Christmas', weeks: '9', dates: '21 Dec - 27 Dec' },
+  { name: 'Rebuild', weeks: '1 - 3', dates: '28 Oct - 17 Nov' },
+  { name: 'Build', weeks: '4 - 6', dates: '18 Nov - 8 Dec' },
+  { name: 'Push', weeks: '7 - 8', dates: '9 Dec - 22 Dec' },
+  { name: 'Christmas', weeks: '9', dates: '23 Dec - 29 Dec' },
 ];
 
 // Day of week (0 = Sunday) to session key.
