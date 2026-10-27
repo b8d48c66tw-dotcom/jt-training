@@ -10,9 +10,9 @@ export function renderWeek(nParam) {
   const t = U.today();
   const sum = P.weekSummary(n, t);
   let html = `<div class="day-nav">
-    ${n > 1 ? `<a class="btn btn-ghost" href="#/week/${n - 1}" aria-label="Previous week">&#9664;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
+    ${n > 1 ? `<a class="btn" href="#/week/${n - 1}" aria-label="Previous week">&#8249;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
     <div class="day-title"><div class="h1">Week ${n}</div><div class="muted">${U.fmtDate(sum.days[0])} - ${U.fmtDate(sum.days[6])} - ${U.esc(w.phase)}</div></div>
-    ${n < P.weekCount() ? `<a class="btn btn-ghost" href="#/week/${n + 1}" aria-label="Next week">&#9654;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
+    ${n < P.weekCount() ? `<a class="btn" href="#/week/${n + 1}" aria-label="Next week">&#8250;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
   </div>`;
   html += `<div class="stats">
     ${stat('Sessions', `${sum.done}/${sum.planned}`)}

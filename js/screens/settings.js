@@ -120,7 +120,7 @@ export function renderSettings() {
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerSound" ${s.timerSound ? 'checked' : ''}> Beeps</label>
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVoice" ${s.timerVoice ? 'checked' : ''}> Voice cues (good with headphones)</label>
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVibrate" ${s.timerVibrate ? 'checked' : ''}> Vibrate (Android only, iPhone does not allow it)</label>
-    ${field('Theme', `<select data-change="pref" data-key="theme">${[['auto', 'Match phone'], ['dark', 'Dark'], ['light', 'Light']].map(([v, l]) => `<option value="${v}" ${s.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}`);
+    ${field('Theme', `<select data-change="pref" data-key="theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<option value="${v}" ${s.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}`);
 
   html += card(`<h2>Install on your iPhone</h2>
     <ol class="plain">

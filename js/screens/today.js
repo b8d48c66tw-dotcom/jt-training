@@ -2,7 +2,7 @@
 import { state, day, peekDay } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, pill, commit, toast, openTimer, rerender } from '../core.js';
+import { on, ui, card, pill, commit, toast, openTimer, rerender, rings } from '../core.js';
 
 export function sessionCard(item, t) {
   const info = P.sessionInfo(item.key, item.week);
@@ -21,21 +21,41 @@ export function sessionCard(item, t) {
       <div class="btn-row">${item.movedFrom ? `<button class="btn btn-ghost" data-act="move" data-id="${item.id}" data-to="${item.origDate}">Back to ${U.dayShort(item.origDate)}</button>` : ''}<button class="btn btn-ghost" data-act="skip" data-id="${item.id}">Skip this week</button></div>
     </div>`;
   }
-  return `<div class="session s-${info.type}">
+  const s = state.settings;
+  const chips = [];
+  if (info.minutes) chips.push(`${info.minutes} min`);
+  if (info.type === 'run') chips.push(`HR &lt; ${s.hrCapHigh}`, { runwalk: 'Run/walk', easy: 'Easy', long: 'Long easy', tempo: 'Tempo' }[info.run.kind] || 'Easy');
+  if (info.type === 'strength') chips.push(`${info.rounds} rounds`, 'Effort 6 - 7');
+  const runReady = info.type === 'run' && status !== 'done';
+  const primary = status === 'done'
+    ? `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">View log</a>`
+    : runReady
+      ? `<button class="btn btn-primary btn-lg" data-act="quick-timer" data-id="${item.id}">Start timer</button>`
+      : `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>`;
+  return `<div class="hero s-${info.type}">
     <a class="session-main" href="#/session/${item.id}">
-      <div class="session-head"><span class="session-title">${U.esc(info.title)}</span>${pill(status)}</div>
-      <div class="session-sub">${U.esc(info.subtitle)}</div>
-      ${meta ? `<div class="session-meta">${U.esc(meta)}</div>` : ''}
+      <div class="hero-top"><span class="kicker teal">${item.date === U.today() ? "Today's session" : 'Session'}</span>${pill(status)}</div>
+      <div class="hero-title">${U.esc(info.title)}</div>
+      <div class="hero-sub">${U.esc(info.subtitle)}</div>
+      ${meta && status === 'done' ? `<div class="session-meta">${U.esc(meta)}</div>` : ''}
+      ${chips.length && status !== 'done' ? `<div class="chips-row">${chips.map((c) => `<span>${c}</span>`).join('')}</div>` : ''}
       ${moved}
     </a>
+    ${primary}
     <div class="btn-row">
-      <a class="btn btn-primary" href="#/session/${item.id}">${status === 'done' ? 'View log' : info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>
+      ${runReady ? `<a class="btn" href="#/session/${item.id}">Details and log</a>` : ''}
       ${canMove ? `<button class="btn" data-act="move-open" data-id="${item.id}">${moveOpen ? 'Cancel' : 'Move'}</button>` : ''}
       ${status === 'skipped' ? `<button class="btn" data-act="unskip" data-id="${item.id}">Undo skip</button>` : ''}
     </div>
     ${movePanel}
   </div>`;
 }
+
+on('quick-timer', (el) => {
+  const item = P.findItem(el.dataset.id);
+  const info = P.sessionInfo(item.key, item.week);
+  openTimer({ title: info.run.title, segments: info.run.segments, planId: item.id, onDoneHash: `#/session/${item.id}` });
+});
 
 on('move-open', (el) => { ui.moveOpen = ui.moveOpen === el.dataset.id ? null : el.dataset.id; rerender(); });
 on('move', (el) => {
@@ -86,11 +106,7 @@ function weighCard(t) {
       <span class="unit">kg</span>
       <button class="btn btn-primary btn-lg">${w != null ? 'Update' : 'Save'}</button>
     </form>
-    <div class="mini-stats">
-      <span>7-day avg <b>${a7 != null ? U.fmtKg(a7) : '-'}</b></span>
-      <span>Target today <b>${U.fmtKg(target)}</b></span>
-      ${a7 != null ? `<span>${a7 <= target + 0.05 ? 'On or ahead of target' : `${U.round1(a7 - target)} kg above target line`}</span>` : ''}
-    </div>`);
+    ${a7 != null ? `<div class="mini-stats"><span>${a7 <= target + 0.05 ? 'On or ahead of the target line' : `${U.round1(a7 - target)} kg above the target line`}</span></div>` : ''}`);
 }
 on('weigh', (form) => {
   const w = U.num(form.weight.value);
@@ -139,20 +155,38 @@ export function renderToday(dateParam) {
   const daysLeft = U.diffDays(U.today(), s.goalDate);
   const items = P.itemsOn(t);
   const away = P.movedAway(t);
+  const d = peekDay(t);
+  const sum = n ? P.weekSummary(n) : null;
+  const food = P.nutritionScore(t);
   let html = `<div class="day-nav">
-    <a class="btn btn-ghost" href="#/day/${U.addDays(t, -1)}" aria-label="Previous day">&#9664;</a>
-    <div class="day-title"><div class="h1">${isToday ? 'Today' : U.esc(U.dayName(t))}</div><div class="muted">${U.fmtDateLong(t)}${n ? ` - Week ${n} of ${P.weekCount()} - ${U.esc(P.week(n).phase)}` : ''}</div></div>
-    <a class="btn btn-ghost" href="#/day/${U.addDays(t, 1)}" aria-label="Next day">&#9654;</a>
+    <a class="btn" href="#/day/${U.addDays(t, -1)}" aria-label="Previous day">&#8249;</a>
+    <div class="day-title"><div class="kicker">${n ? `Week ${n} - ${U.esc(P.week(n).phase)}` : 'Off program'}</div><div class="h1">${U.esc(U.fmtDateLong(t))}</div></div>
+    <a class="btn" href="#/day/${U.addDays(t, 1)}" aria-label="Next day">&#8250;</a>
   </div>`;
-  if (!isToday) html += `<a class="btn btn-ghost btn-block" href="#/today">Back to today</a>`;
-  html += `<div class="countdown">${daysLeft > 0 ? `<b>${daysLeft}</b> days to ${U.fmtDate(s.goalDate)} - goal ${s.goalWeight} kg` : daysLeft === 0 ? '<b>Goal weigh-in today!</b>' : `Goal date passed - ${s.goalWeight} kg target`}</div>`;
+  if (!isToday) html += `<a class="btn btn-block back-today" href="#/today">Back to today</a>`;
+
+  // Activity rings: mobility (outer), food, week's sessions (inner). Days to go in the middle.
+  html += `<div class="ring-wrap">${rings([
+    { pct: d?.mobility ? 1 : 0, color: 'var(--accent)' },
+    { pct: food / P.NUTRITION_ITEMS.length, color: 'var(--accent-2)' },
+    { pct: sum && sum.planned ? sum.done / sum.planned : 0, color: 'var(--violet)' },
+  ], daysLeft > 0 ? String(daysLeft) : daysLeft === 0 ? 'Today' : '-', daysLeft > 0 ? `days to ${U.fmtDate(s.goalDate)}` : 'goal day')}</div>
+  <div class="ring-legend"><span><i style="background:var(--accent)"></i>Mobility</span><span><i style="background:var(--accent-2)"></i>Food ${food}/5</span><span><i style="background:var(--violet)"></i>Week ${sum ? `${sum.done}/${sum.planned}` : '-'}</span></div>`;
   if (isToday) html += backupBanner() + missedBanner(t);
 
   let sessions = items.map((i) => sessionCard(i, U.today())).join('');
   if (away) sessions += `<div class="note">${U.esc(P.sessionInfo(away.key, away.week).title)} moved to ${U.dayName(away.to)} ${U.fmtDate(away.to)}</div>`;
-  if (!items.length && !away) sessions = n ? '<p class="muted">Rest day.</p>' : `<p class="muted">Outside the 9-week program (${U.fmtDate(s.startDate)} - ${U.fmtDate(s.endDate)}).</p>`;
+  if (!items.length && !away) sessions = card(n ? '<div class="kicker">Session</div><div class="hero-title">Rest day</div><p class="muted">Mobility and a walk if you feel like it.</p>' : `<p class="muted">Outside the 9-week program (${U.fmtDate(s.startDate)} - ${U.fmtDate(s.endDate)}).</p>`);
   if (n && P.week(n).notes && U.dow(t) === 1) sessions += `<div class="note">${U.esc(P.week(n).notes)}</div>`;
-  html += card(`<h2>Session</h2>${sessions}`);
+  html += sessions;
+
+  // Weight and goal tiles
+  const list = P.weights();
+  const a7 = P.avg7(t, list) ?? (list.length ? list[list.length - 1].w : null);
+  html += `<div class="tiles">
+    <div class="tile"><div class="kicker">Weight</div><div class="tile-v">${a7 != null ? U.round1(a7).toFixed(1) : '-'}</div><div class="muted">7-day avg - target ${U.round1(P.targetAt(t)).toFixed(1)}</div></div>
+    <div class="tile"><div class="kicker">Goal</div><div class="tile-v">${s.goalWeight.toFixed(1)}</div><div class="muted">${a7 != null ? `${Math.max(0, U.round1(a7 - s.goalWeight)).toFixed(1)} kg to go` : `by ${U.fmtDate(s.goalDate)}`}</div></div>
+  </div>`;
 
   html += weighCard(t);
   html += mobilityCard(t);

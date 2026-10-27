@@ -174,9 +174,9 @@ export function renderCheckin(nParam) {
   const last = state.meta.lastBackup;
   const backupAge = last ? U.diffDays(last.slice(0, 10), U.today()) : null;
   let html = `<div class="day-nav">
-    ${n > 1 ? `<a class="btn btn-ghost" href="#/checkin/${n - 1}" aria-label="Previous week">&#9664;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
+    ${n > 1 ? `<a class="btn" href="#/checkin/${n - 1}" aria-label="Previous week">&#8249;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
     <div class="day-title"><div class="h1">Week ${n} check-in</div><div class="muted">${U.fmtDate(s.days[0])} - ${U.fmtDate(s.days[6])} - ${U.esc(P.week(n).phase)}</div></div>
-    ${n < P.weekCount() ? `<a class="btn btn-ghost" href="#/checkin/${n + 1}" aria-label="Next week">&#9654;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
+    ${n < P.weekCount() ? `<a class="btn" href="#/checkin/${n + 1}" aria-label="Next week">&#8250;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
   </div>`;
   html += `<div class="stats stats-3">
     ${stat('7-day avg', s.avg != null ? U.round1(s.avg).toFixed(1) : '-', 'kg')}

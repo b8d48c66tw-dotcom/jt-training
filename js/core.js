@@ -48,6 +48,24 @@ export function stat(label, value, sub = '') {
   return `<div class="stat"><div class="stat-v">${value}</div><div class="stat-l">${U.esc(label)}</div>${sub ? `<div class="stat-s">${sub}</div>` : ''}</div>`;
 }
 
+// Concentric activity rings, outer to inner. items: [{ pct (0-1), color }]
+export function rings(items, centreBig = '', centreSmall = '', size = 176) {
+  const stroke = 13, gap = 4;
+  let svg = '';
+  items.forEach((it, i) => {
+    const r = size / 2 - stroke / 2 - i * (stroke + gap);
+    const c = 2 * Math.PI * r;
+    const pct = Math.max(0, Math.min(1, it.pct || 0));
+    svg += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--ring-track)" stroke-width="${stroke}"/>`;
+    if (pct > 0) svg += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${it.color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct)).toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+  });
+  if (centreBig !== '') {
+    svg += `<text x="50%" y="${size / 2 + 4}" text-anchor="middle" class="ring-big">${U.esc(centreBig)}</text>`;
+    svg += `<text x="50%" y="${size / 2 + 24}" text-anchor="middle" class="ring-small">${U.esc(centreSmall)}</text>`;
+  }
+  return `<svg class="rings" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="Daily progress rings">${svg}</svg>`;
+}
+
 export function formData(form) {
   const o = {};
   for (const el of form.elements) {
