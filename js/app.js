@@ -1,8 +1,6 @@
 // Bootstrap, router and event delegation.
 import { loadState, state } from './store.js';
-import { actions, setRenderer, card, toast } from './core.js';
-import { esc } from './util.js';
-import { handleRedirect, autoSync } from './strava.js';
+import { actions, setRenderer } from './core.js';
 import { hydrateCharts } from './charts.js';
 import { renderToday } from './screens/today.js';
 import { renderWeek } from './screens/week.js';
@@ -66,21 +64,7 @@ await loadState();
 applyTheme();
 setRenderer(render);
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
-
-// Returning from Strava's sign-in page?
-const back = await handleRedirect();
-if (back.handled && back.code) {
-  // The redirect opened outside the installed app (common on iPhone), so this copy of the app has no keys.
-  document.getElementById('title').textContent = 'Strava';
-  document.getElementById('view').innerHTML = card(`<h2>Almost connected</h2>
-    <p>Strava opened this page in Safari instead of the installed app. Copy this code, open JT Training from your home screen, go to Settings, Strava, "Ended up in Safari with a code?" and paste it. Do it within a few minutes - the code expires.</p>
-    <input class="big-input" readonly value="${esc(back.code)}" onclick="this.select()">
-    <button class="btn btn-primary btn-lg btn-block" onclick="navigator.clipboard.writeText('${esc(back.code)}').then(()=>this.textContent='Copied')">Copy code</button>`);
-} else {
-  render();
-  if (back.handled) toast(back.message);
-  else autoSync().then((r) => { if (r && r.added) { toast(`Strava: ${r.added} new`); render(); } });
-}
+render();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});

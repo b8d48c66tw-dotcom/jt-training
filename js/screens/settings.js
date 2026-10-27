@@ -2,7 +2,6 @@
 import { state, replaceState, resetState } from '../store.js';
 import * as U from '../util.js';
 import { on, card, field, commit, toast, go } from '../core.js';
-import * as ST from '../strava.js';
 
 // ---- export / import ----------------------------------------------------------------------
 async function shareOrDownload(text, filename, mime) {
@@ -23,10 +22,7 @@ async function shareOrDownload(text, filename, mime) {
 
 on('export-json', async () => {
   const stamp = U.today();
-  // Leave Strava login tokens out of backups (you reconnect after a restore). Keys stay so reconnecting is one tap.
-  const copy = JSON.parse(JSON.stringify(state));
-  if (copy.settings.strava) for (const k of ['accessToken', 'refreshToken', 'expiresAt', 'oauthState']) delete copy.settings.strava[k];
-  const backup = { app: 'jt-training', exported: new Date().toISOString(), state: copy };
+  const backup = { app: 'jt-training', exported: new Date().toISOString(), state };
   const ok = await shareOrDownload(JSON.stringify(backup, null, 1), `jt-training-backup-${stamp}.json`, 'application/json');
   if (ok) {
     state.meta.lastBackup = `${U.today()}T${new Date().toTimeString().slice(0, 5)}`; // local time
@@ -140,83 +136,10 @@ export function renderSettings() {
     <h3>Interval timer</h3>
     <p class="muted">Keep the timer screen open. It keeps the screen awake and beeps at each change. iPhone pauses web apps when the screen locks, so beeps stop while locked, but the timer catches up when you unlock.</p>`, 'card-quiet');
 
-  html += stravaCard();
+  html += card(`<h2>Strava</h2><p class="muted">Coming in version 2: pull runs and cricket in from Strava automatically. Your Jan - Oct 2026 runs are already loaded.</p>`, 'card-quiet');
   html += `<button class="btn btn-danger btn-block" data-act="reset-all">Reset all data</button>`;
   return { title: 'Settings', html };
 }
-
-// ---- Strava -------------------------------------------------------------------------------------
-function stravaCard() {
-  const s = ST.sv();
-  const domain = location.host;
-  if (ST.isConnected()) {
-    return card(`<h2>Strava</h2>
-      <p>&#10003; Connected${s.athlete ? ` as <b>${U.esc(s.athlete)}</b>` : ''}.</p>
-      <p class="muted">${s.lastSync ? `Last sync ${U.fmtDate(U.iso(new Date(s.lastSync)))} at ${new Date(s.lastSync).toTimeString().slice(0, 5)}.` : 'Not synced yet.'} Runs, cricket, strength and erg sessions from ${U.fmtDate(state.settings.startDate)} on. They count towards your planned sessions and fill in distance, time and heart rate. Walks are skipped.</p>
-      <button class="btn btn-primary btn-lg btn-block" data-act="strava-sync">Sync now</button>
-      <label class="check"><input type="checkbox" data-change="strava-auto" ${s.autoSync === false ? '' : 'checked'}> Sync automatically when I open the app</label>
-      <button class="btn btn-ghost btn-block" data-act="strava-disconnect">Disconnect Strava</button>`);
-  }
-  const setup = `<ol class="plain">
-      <li>On a computer, go to <b>strava.com/settings/api</b> and create an app. Name: JT Training. Category: Training. Website: <b>https://${U.esc(domain)}</b>.</li>
-      <li>Set <b>Authorization Callback Domain</b> to <b>${U.esc(location.hostname)}</b>.</li>
-      <li>Copy the <b>Client ID</b> and <b>Client Secret</b> into the boxes below.</li>
-    </ol>`;
-  return card(`<h2>Strava</h2>
-    <p>Pull your runs, cricket and gym sessions in automatically, with heart rate. Your Jan - Oct 2026 runs are already loaded.</p>
-    ${isConfiguredHtml(s, setup)}`);
-}
-function isConfiguredHtml(s, setup) {
-  if (!ST.isConfigured()) {
-    return `${setup}
-      <form data-submit="strava-keys">
-        ${field('Client ID', '<input name="clientId" type="text" inputmode="numeric" autocomplete="off">')}
-        ${field('Client Secret', '<input name="clientSecret" type="password" autocomplete="off">', 'Stored on this device only. Never shared or uploaded.')}
-        <button class="btn btn-primary btn-block">Save keys</button>
-      </form>`;
-  }
-  return `<p class="muted">Keys saved for app ${U.esc(s.clientId)}.</p>
-    <button class="btn btn-go btn-lg btn-block" data-act="strava-connect">Connect to Strava</button>
-    <details class="more"><summary>Ended up in Safari with a code?</summary>
-      <form data-submit="strava-code">${field('Paste the code', '<input name="code" type="text" autocomplete="off">')}<button class="btn btn-block">Finish connecting</button></form>
-    </details>
-    <button class="btn btn-ghost btn-block" data-act="strava-clear-keys">Change keys</button>`;
-}
-
-on('strava-keys', (form) => {
-  const id = form.clientId.value.trim(), secret = form.clientSecret.value.trim();
-  if (!/^\d+$/.test(id) || secret.length < 20) return toast('Check the Client ID (numbers) and Secret');
-  Object.assign(ST.sv(), { clientId: id, clientSecret: secret });
-  commit();
-  toast('Keys saved');
-});
-on('strava-clear-keys', () => { const s = ST.sv(); delete s.clientId; delete s.clientSecret; commit(); });
-on('strava-connect', () => ST.startConnect());
-on('strava-code', async (form) => {
-  const code = form.code.value.trim();
-  if (!code) return;
-  try {
-    await ST.exchangeCode(code);
-    const r = await ST.sync();
-    toast(`Connected. ${r.added} new, ${r.updated} updated.`);
-  } catch (e) { toast(`Could not connect: ${e.message}`); }
-  commit();
-});
-on('strava-sync', async (el) => {
-  el.disabled = true;
-  el.textContent = 'Syncing...';
-  try {
-    const r = await ST.sync();
-    toast(r.added || r.updated ? `${r.added} new, ${r.updated} updated` : 'Already up to date');
-  } catch (e) { toast(`Sync failed: ${e.message}`); }
-  commit();
-});
-on('strava-auto', (el) => { ST.sv().autoSync = el.checked; commit(); });
-on('strava-disconnect', async () => {
-  if (!confirm('Disconnect Strava? Activities already pulled in stay in your log.')) return;
-  await ST.disconnect();
-  commit();
-});
 
 // ---- program editor -----------------------------------------------------------------------------
 const UNITS = [['reps', 'reps'], ['each', 'reps each side'], ['sec', 'seconds'], ['secEach', 'seconds each side'], ['m', 'metres']];
