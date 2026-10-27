@@ -136,7 +136,6 @@ export function renderSettings() {
     <h3>Interval timer</h3>
     <p class="muted">Keep the timer screen open. It keeps the screen awake and beeps at each change. iPhone pauses web apps when the screen locks, so beeps stop while locked, but the timer catches up when you unlock.</p>`, 'card-quiet');
 
-  html += card(`<h2>Strava</h2><p class="muted">Coming in version 2: pull runs and cricket in from Strava automatically. Your Jan - Oct 2026 runs are already loaded.</p>`, 'card-quiet');
   html += `<button class="btn btn-danger btn-block" data-act="reset-all">Reset all data</button>`;
   return { title: 'Settings', html };
 }

@@ -39,7 +39,6 @@ export const settings = {
   timerSound: true,
   timerVoice: true,
   timerVibrate: true,
-  strava: { connected: false, lastSync: null }, // version 2
 };
 
 // ---- equipment --------------------------------------------------------------
