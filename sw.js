@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'jt-training-v9';
+const VERSION = 'jt-training-v10';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/core.js', './js/store.js', './js/seed.js', './js/plan.js', './js/util.js', './js/timer.js', './js/charts.js',
@@ -14,7 +14,10 @@ self.addEventListener('install', (e) => {
     caches.open(VERSION)
       .then((c) => c.addAll(FILES).then(() => fetch('./img/ex/list.json'))
         .then((r) => r.json())
-        .then((list) => c.addAll(list.map((f) => `./img/ex/${f}`))))
+        .then((list) => c.addAll(list.map((f) => `./img/ex/${f}`)))
+        .then(() => fetch('./voice/list.json'))
+        .then((r) => r.json())
+        .then((keys) => c.addAll(['./voice/list.json', ...keys.map((k) => `./voice/${k}.wav`)])))
       .then(() => self.skipWaiting())
   );
 });

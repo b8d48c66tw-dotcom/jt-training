@@ -3,7 +3,7 @@ import { state, replaceState, resetState } from '../store.js';
 import * as U from '../util.js';
 import { on, card, field, commit, toast, go } from '../core.js';
 import { rerender } from '../core.js';
-import { englishVoices, pickVoice, say, beepShort, beepChange, beepDone, unlockAudio, audioStatus } from '../timer.js';
+import { englishVoices, beepShort, beepChange, beepDone, unlockAudio, audioStatus, speakParts } from '../timer.js';
 
 // ---- export / import ----------------------------------------------------------------------
 async function shareOrDownload(text, filename, mime) {
@@ -123,7 +123,7 @@ export function renderSettings() {
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVoice" ${s.timerVoice ? 'checked' : ''}> Voice cues (good with headphones)</label>
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVibrate" ${s.timerVibrate ? 'checked' : ''}> Vibrate (Android only, iPhone does not allow it)</label>
     ${field('Sound volume', `<input type="range" min="0" max="1" step="0.05" value="${s.timerVolume ?? 0.5}" data-change="pref" data-key="timerVolume" class="range">`)}
-    ${field('Voice', `<select data-change="pref" data-key="timerVoiceName"><option value="">Most natural available (automatic)</option>${voiceOptions(s.timerVoiceName)}</select>`, 'For a softer, more human voice, download an Enhanced or Premium voice: iPhone Settings, Accessibility, Spoken Content, Voices, English. Then pick it here.')}
+    ${field('Backup voice', `<select data-change="pref" data-key="timerVoiceName"><option value="">Automatic</option>${voiceOptions(s.timerVoiceName)}</select>`, 'Voice cues are recorded clips (Catherine, Australian), so they work on any phone. The backup voice only reads anything without a recording, such as an exercise you add yourself.')}
     <div class="btn-row"><button class="btn" data-act="test-sound">Test sounds</button><button class="btn" data-act="test-voice">Test voice</button></div>
     ${field('Theme', `<select data-change="pref" data-key="theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<option value="${v}" ${s.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}`);
 
@@ -157,9 +157,7 @@ function voiceOptions(current) {
 if (window.speechSynthesis) speechSynthesis.addEventListener?.('voiceschanged', () => { if (location.hash.startsWith('#/settings')) rerender(); });
 on('test-voice', () => {
   unlockAudio();
-  const v = pickVoice();
-  say(`Goblet squat. Round two of three. Twelve to fifteen reps.${v ? '' : ''}`, true);
-  if (v) toast(`Voice: ${v.name}`);
+  speakParts(['Round', 'two', 'of', 'three', 'Next up', 'Goblet squat'], true);
 });
 on('test-sound', () => { unlockAudio(); setTimeout(() => toast(`Sound check: ${audioStatus()}`), 400); beepShort(); setTimeout(beepShort, 700); setTimeout(beepChange, 1500); setTimeout(beepDone, 3000); });
 

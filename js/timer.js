@@ -154,6 +154,82 @@ export function say(text, force = false) {
   } catch (e) { /* ignore */ }
 }
 
+// ---- recorded voice clips -------------------------------------------------------------------------
+// Clips live in voice/<key>.wav (key = clipKey of the phrase). Anything without a clip falls back
+// to the device's speech voice.
+export const clipKey = (t) => String(t).replace(/ - tap Next when done/i, '').replace(/\s*\([^)]*\)/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+export const numWord = (n) => WORDS[n] || String(n);
+let clipList = null;
+const clipBuffers = new Map();
+let playing = [];
+let playToken = 0;
+async function loadClipList() {
+  if (!clipList) {
+    try { clipList = new Set(await (await fetch('voice/list.json')).json()); } catch (e) { clipList = new Set(); }
+  }
+  return clipList;
+}
+function clipBuffer(k) {
+  if (!clipBuffers.has(k)) {
+    const a = ctx();
+    clipBuffers.set(k, fetch(`voice/${k}.wav`).then((r) => r.arrayBuffer())
+      .then((b) => new Promise((res, rej) => a.decodeAudioData(b, res, rej))).catch(() => { clipBuffers.delete(k); return null; }));
+  }
+  return clipBuffers.get(k);
+}
+export async function preloadClips(phrases) {
+  const list = await loadClipList();
+  for (const k of new Set(phrases.map(clipKey))) if (list.has(k)) clipBuffer(k);
+}
+// Speaks a sequence of phrases, e.g. ['Next up', 'Goblet squat']. Interrupts anything still talking.
+export async function speakParts(parts, force = false) {
+  if ((!state.settings.timerVoice && !force) || !parts.length) return;
+  const my = ++playToken;
+  const list = await loadClipList();
+  const keys = parts.map(clipKey);
+  const a = ctx();
+  if (!a || !keys.every((k) => list.has(k))) return say(parts.join(' '), force);
+  const bufs = await Promise.all(keys.map(clipBuffer));
+  if (my !== playToken) return;
+  if (bufs.some((b) => !b)) return say(parts.join(' '), force);
+  playing.forEach((src) => { try { src.stop(); } catch (e) { /* ignore */ } });
+  playing = [];
+  const g = a.createGain();
+  g.gain.value = Math.max(0.3, Math.min(1, (state.settings.timerVolume ?? 0.6) + 0.35));
+  g.connect(a.destination);
+  let t = a.currentTime + 0.03;
+  for (const b of bufs) {
+    const src = a.createBufferSource();
+    src.buffer = b;
+    src.connect(g);
+    src.start(t);
+    playing.push(src);
+    t += b.duration + 0.05;
+  }
+}
+
+// What to say when a step starts.
+export function cueFor(segs, idx) {
+  const s = segs[idx];
+  if (!s) return [];
+  const name = (s.l || '').replace(/^Get ready: /, '');
+  if (s.k === 'ready' && /^Get ready: /.test(s.l)) {
+    // First exercise of a new round: say which round.
+    const firstOfRound = s.round > 1 && !segs.slice(0, idx).some((x) => x.k === 'ready' && x.round === s.round);
+    const lead = firstOfRound ? (s.round === s.rounds ? ['Last round'] : ['Round', numWord(s.round), 'of', numWord(s.rounds)]) : [];
+    return [...lead, 'Next up', name];
+  }
+  if (s.k === 'work') return [name, ...(/^Left side/.test(s.sub || '') ? ['Left side'] : /^Right side/.test(s.sub || '') ? ['Right side'] : [])];
+  if (s.k === 'switch') return ['Switch sides'];
+  if (s.k === 'rest' && /^Round rest/.test(s.l)) return ['Round rest'];
+  if (s.k === 'hold' && / - (left|right)$/.test(s.l)) return [s.l.replace(/ - (left|right)$/, ''), / - left$/.test(s.l) ? 'Left side' : 'Right side'];
+  return [s.l];
+}
+// Steps that are recoveries get the longer countdown and spoken "three, two, one".
+const RECOVERY = ['rest', 'ready', 'walk', 'jog', 'switch'];
+
 let wakeLock = null;
 async function lockScreen() {
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { wakeLock = null; }
@@ -184,14 +260,13 @@ export class IntervalTimer {
     this.running = true;
     lockScreen();
     document.addEventListener('visibilitychange', this.onVis);
+    preloadClips([...this.segs.flatMap((_, i) => cueFor(this.segs, i)), 'Ten seconds', 'Three', 'Two', 'One', 'Session complete']);
     this.announce();
     this.interval = setInterval(() => this.tick(), 200);
     this.tick();
   }
   announce() {
-    const s = this.segs[this.idx];
-    if (!s) return;
-    say(s.l + (s.round ? `. Round ${s.round} of ${s.rounds}` : ''));
+    speakParts(cueFor(this.segs, this.idx));
   }
   get elapsedInSeg() {
     const now = this.pausedAt ?? Date.now();
@@ -221,9 +296,18 @@ export class IntervalTimer {
       const s = this.segs[this.idx];
       if (s && s.s) {
         const left = Math.ceil(s.s - this.elapsedInSeg);
-        if (left <= 3 && left >= 1 && this.lastBeep !== `${this.idx}:${left}`) {
+        const recovery = RECOVERY.includes(s.k);
+        const from = recovery ? Math.min(5, s.s - 1) : 3;
+        if (left <= from && left >= 1 && this.lastBeep !== `${this.idx}:${left}`) {
           this.lastBeep = `${this.idx}:${left}`;
           beepShort();
+          if (recovery && left <= 3 && s.s >= 8) speakParts([numWord(left)]);
+        }
+        if (recovery && s.s >= 30 && left === 10 && this.lastTen !== this.idx) {
+          this.lastTen = this.idx;
+          const next = this.segs[this.idx + 1];
+          const nextName = next && (next.l || '').replace(/^Get ready: /, '');
+          speakParts(next && !['rest', 'ready'].includes(next.k) && nextName ? ['Ten seconds', 'Next up', nextName] : ['Ten seconds']);
         }
       }
     }
@@ -272,7 +356,7 @@ export class IntervalTimer {
   finish() {
     this.finished = true;
     beepDone();
-    say('Session complete. Nice work.');
+    speakParts(['Session complete']);
     this.cleanup();
     this.onTick(this.view());
     this.onDone(this.view());
