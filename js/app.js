@@ -2,6 +2,7 @@
 import { loadState, state } from './store.js';
 import { actions, setRenderer } from './core.js';
 import { hydrateCharts } from './charts.js';
+import { unlockAudio } from './timer.js';
 import { renderToday } from './screens/today.js';
 import { renderWeek } from './screens/week.js';
 import { renderSession, renderNewLog, renderActivity } from './screens/session.js';
@@ -43,6 +44,8 @@ function applyTheme() {
   else document.documentElement.dataset.theme = t;
 }
 
+// First tap anywhere unlocks audio and speech on iPhone.
+for (const ev of ['touchend', 'click']) document.addEventListener(ev, () => unlockAudio(), { once: true, passive: true });
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');
   if (el && actions[el.dataset.act]) { e.preventDefault(); actions[el.dataset.act](el, e); }

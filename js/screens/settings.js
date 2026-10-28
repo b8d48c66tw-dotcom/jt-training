@@ -3,7 +3,7 @@ import { state, replaceState, resetState } from '../store.js';
 import * as U from '../util.js';
 import { on, card, field, commit, toast, go } from '../core.js';
 import { rerender } from '../core.js';
-import { englishVoices, pickVoice, say, beepShort, beepChange, beepDone } from '../timer.js';
+import { englishVoices, pickVoice, say, beepShort, beepChange, beepDone, unlockAudio, audioStatus } from '../timer.js';
 
 // ---- export / import ----------------------------------------------------------------------
 async function shareOrDownload(text, filename, mime) {
@@ -156,11 +156,12 @@ function voiceOptions(current) {
 // Voices load after the page on some phones: refresh the list once they arrive.
 if (window.speechSynthesis) speechSynthesis.addEventListener?.('voiceschanged', () => { if (location.hash.startsWith('#/settings')) rerender(); });
 on('test-voice', () => {
+  unlockAudio();
   const v = pickVoice();
   say(`Goblet squat. Round two of three. Twelve to fifteen reps.${v ? '' : ''}`, true);
   if (v) toast(`Voice: ${v.name}`);
 });
-on('test-sound', () => { beepShort(); setTimeout(beepShort, 700); setTimeout(beepChange, 1500); setTimeout(beepDone, 3000); });
+on('test-sound', () => { unlockAudio(); setTimeout(() => toast(`Sound check: ${audioStatus()}`), 400); beepShort(); setTimeout(beepShort, 700); setTimeout(beepChange, 1500); setTimeout(beepDone, 3000); });
 
 // ---- program editor -----------------------------------------------------------------------------
 const UNITS = [['reps', 'reps'], ['each', 'reps each side'], ['sec', 'seconds'], ['secEach', 'seconds each side'], ['m', 'metres']];

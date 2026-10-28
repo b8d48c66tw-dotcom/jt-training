@@ -41,7 +41,7 @@ export const settings = {
   timerSound: true,
   timerVoice: true,
   timerVoiceName: '', // blank = pick the most natural voice automatically
-  timerVolume: 0.5,
+  timerVolume: 0.6,
   timerVibrate: true,
 };
 
