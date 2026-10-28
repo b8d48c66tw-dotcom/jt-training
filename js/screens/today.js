@@ -2,7 +2,7 @@
 import { state, day, peekDay } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, pill, commit, toast, openTimer, rerender, rings } from '../core.js';
+import { on, ui, card, pill, commit, toast, openTimer, rerender, rings, flip } from '../core.js';
 
 export function sessionCard(item, t) {
   const info = P.sessionInfo(item.key, item.week);
@@ -25,13 +25,21 @@ export function sessionCard(item, t) {
   const chips = [];
   if (info.minutes) chips.push(`${info.minutes} min`);
   if (info.type === 'run') chips.push(`HR &lt; ${s.hrCapHigh}`, { runwalk: 'Run/walk', easy: 'Easy', long: 'Long easy', tempo: 'Tempo' }[info.run.kind] || 'Easy');
-  if (info.type === 'strength') chips.push(`${info.rounds} rounds`, 'Effort 6 - 7');
+  if (info.type === 'strength') {
+    const o = P.guidedOptions(item.key, item.week, item.date).best;
+    chips.length = 0;
+    chips.push(`${o.min} min`, `${o.rounds} rounds`, `${state.settings.timing.work} sec sets`, 'Effort 6 - 7');
+  }
   const runReady = info.type === 'run' && status !== 'done';
-  const primary = status === 'done'
-    ? `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">View log</a>`
-    : runReady
-      ? `<button class="btn btn-primary btn-lg" data-act="quick-timer" data-id="${item.id}">Start timer</button>`
-      : `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>`;
+  const strReady = info.type === 'strength' && status !== 'done';
+  let primary;
+  if (status === 'done') primary = `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">View log</a>`;
+  else if (runReady) primary = `<button class="btn btn-primary btn-lg" data-act="quick-timer" data-id="${item.id}">Start timer</button>`;
+  else if (strReady) {
+    // Guided, timed session fitted to the time budget.
+    const o = P.guidedOptions(item.key, item.week, item.date).best;
+    primary = `<button class="btn btn-primary btn-lg" data-act="guided" data-key="${item.key}" data-n="${item.week}" data-date="${item.date}" data-r="${o.rounds}" data-c="${o.compress ? 1 : ''}" data-id="${item.id}" data-hash="#/session/${item.id}">Start session - ${o.min} min</button>`;
+  } else primary = `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>`;
   return `<div class="hero s-${info.type}">
     <a class="session-main" href="#/session/${item.id}">
       <div class="hero-top"><span class="kicker teal">${item.date === U.today() ? "Today's session" : 'Session'}</span>${pill(status)}</div>
@@ -43,7 +51,7 @@ export function sessionCard(item, t) {
     </a>
     ${primary}
     <div class="btn-row">
-      ${runReady ? `<a class="btn" href="#/session/${item.id}">Details and log</a>` : ''}
+      ${runReady || strReady ? `<a class="btn" href="#/session/${item.id}">Details and log</a>` : ''}
       ${canMove ? `<button class="btn" data-act="move-open" data-id="${item.id}">${moveOpen ? 'Cancel' : 'Move'}</button>` : ''}
       ${status === 'skipped' ? `<button class="btn" data-act="unskip" data-id="${item.id}">Undo skip</button>` : ''}
     </div>
@@ -122,7 +130,7 @@ function mobilityCard(t) {
   const r = P.mobilityRoutine(t);
   return card(`<div class="card-head"><h2>Mobility - ${r.minutes} min${r.long ? ' (long flow)' : ''}</h2></div>
     <button class="tick ${done ? 'on' : ''}" data-act="toggle-mob" data-date="${t}"><span class="box">${done ? '&#10003;' : ''}</span>${done ? 'Mobility done' : 'Tick when done'}</button>
-    <ul class="drills">${r.drills.map((m) => `<li><b>${U.esc(m.name)}</b> <span class="muted">${m.sides === 2 ? `${m.hold} sec each side` : `${m.hold} sec`}</span><div class="cue">${U.esc(m.cue)}</div></li>`).join('')}</ul>
+    <ul class="drills">${r.drills.map((m) => `<li class="drill">${flip(P.imgFor(m.name), 'flip-sm') || '<div class="flip-sm flip-none"></div>'}<div><b>${U.esc(m.name)}</b> <span class="muted">${m.sides === 2 ? `${m.hold} sec each side` : `${m.hold} sec`}</span><div class="cue">${U.esc(m.cue)}</div></div></li>`).join('')}</ul>
     <button class="btn btn-lg btn-block" data-act="mob-timer" data-date="${t}">Start guided routine</button>`);
 }
 on('toggle-mob', (el) => { const d = day(el.dataset.date); d.mobility = !d.mobility; commit(); });

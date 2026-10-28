@@ -78,26 +78,36 @@ export function formData(form) {
 }
 
 // ---- timer overlay ----------------------------------------------------------------------
-const KIND_LABEL = { warm: 'Warm-up', cool: 'Cool-down', run: 'Run', walk: 'Walk', tempo: 'Tempo', jog: 'Jog', stride: 'Stride', hard: 'Hard', easy: 'Easy', rest: 'Rest', hold: 'Hold' };
+const KIND_LABEL = {
+  warm: 'Warm-up', cool: 'Cool-down', run: 'Run', walk: 'Walk', tempo: 'Tempo', jog: 'Jog', stride: 'Stride', hard: 'Hard', easy: 'Easy',
+  rest: 'Rest', hold: 'Hold', work: 'Work', ready: 'Get ready', switch: 'Switch',
+};
 let active = null;
 
-export function openTimer({ title, segments, planId = null, onDoneHash = null }) {
+// Two-photo "flipbook" demo of an exercise (start and end positions, cross-fading).
+export function flip(imgId, cls = '') {
+  if (!imgId) return '';
+  return `<div class="flip ${cls}" role="img" aria-label="Exercise demonstration"><img src="img/ex/${imgId}-0.jpg" alt=""><img src="img/ex/${imgId}-1.jpg" alt=""></div>`;
+}
+
+// summary: optional HTML shown on the start screen instead of the full step list.
+export function openTimer({ title, segments, planId = null, onDoneHash = null, summary = null, meta = null }) {
   const segs = flatten(segments);
   const el = document.getElementById('timer');
   const total = totalSec(segs);
   const hasOpen = segs.some((s) => !s.s);
   el.hidden = false;
   document.body.classList.add('no-scroll');
-  el.className = 'timer k-ready';
+  el.className = 'timer k-start';
   el.innerHTML = `
     <div class="t-top"><span class="t-title">${U.esc(title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
     <div class="t-ready">
-      <div class="t-sum">${segs.length} steps${total ? ` - ${Math.round(total / 60)} min${hasOpen ? ' plus open-ended steps' : ''}` : ''}</div>
-      <ol class="t-list">${segs.slice(0, 40).map((s) => `<li><span>${U.esc(s.l)}${s.round ? ` (${s.round}/${s.rounds})` : ''}</span><b>${s.s ? U.fmtDuration(s.s) : 'tap Next'}</b></li>`).join('')}${segs.length > 40 ? '<li>...</li>' : ''}</ol>
+      <div class="t-sum">${total ? `About ${Math.round(total / 60)} min${hasOpen ? ' plus open-ended steps' : ''}` : `${segs.length} steps`}</div>
+      ${summary || `<ol class="t-list">${segs.slice(0, 40).map((s) => `<li><span>${U.esc(s.l)}${s.round ? ` (${s.round}/${s.rounds})` : ''}</span><b>${s.s ? U.fmtDuration(s.s) : 'tap Next'}</b></li>`).join('')}${segs.length > 40 ? '<li>...</li>' : ''}</ol>`}
       <p class="t-note">Keep this screen open - it stays awake and beeps at each change. If the phone locks, the timer catches up when you unlock it.</p>
       <button class="btn btn-xl btn-go" data-act="timer-start">Start</button>
     </div>`;
-  active = { segs, title, planId, onDoneHash, timer: null };
+  active = { segs, title, planId, onDoneHash, timer: null, shownImg: undefined, meta };
 }
 
 function renderRunning(v) {
@@ -116,6 +126,7 @@ function renderRunning(v) {
     el.innerHTML = `
       <div class="t-top"><span class="t-title">${U.esc(active.title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
       <div class="t-main live">
+        <div class="t-img" data-r="img"></div>
         <div class="t-kind" data-r="kind"></div>
         <div class="t-label" data-r="label"></div>
         <div class="t-big" data-r="big"></div>
@@ -135,8 +146,14 @@ function renderRunning(v) {
   set('kind', `${KIND_LABEL[s.k] || ''}${s.round ? ` - round ${s.round} of ${s.rounds}` : ''}`);
   set('label', s.l || '');
   set('big', s.s ? U.fmtDuration(Math.ceil(v.remaining)) : U.fmtDuration(v.elapsed));
-  set('sub', s.s ? '' : 'counting up - tap Next when done');
-  set('cue', s.cue || '');
+  set('sub', s.s ? s.sub || '' : `${s.sub ? `${s.sub} - ` : ''}counting up - tap Next when done`);
+  set('cue', s.k === 'work' || s.k === 'hold' || s.k === 'warm' ? s.cue || '' : '');
+  // Exercise photo: the current exercise, or the next one during rests. Only swap when it changes.
+  const img = s.img || (s.k === 'rest' ? v.next?.img : null) || null;
+  if (active.shownImg !== img) {
+    active.shownImg = img;
+    el.querySelector('[data-r="img"]').innerHTML = flip(img, 'flip-timer');
+  }
   set('next', v.next ? `Next: ${v.next.l}${v.next.s ? ` (${U.fmtDuration(v.next.s)})` : ''}` : 'Last step');
   set('foot', `Step ${v.idx + 1} of ${v.count} - elapsed ${U.fmtDuration(v.totalElapsed)}${v.totalRemaining != null ? ` - about ${Math.ceil(v.totalRemaining / 60)} min left` : ''}`);
   set('pause', v.paused ? 'Resume' : 'Pause');
@@ -151,16 +168,32 @@ on('timer-next', () => active?.timer?.next());
 on('timer-prev', () => active?.timer?.prev());
 on('timer-close', () => {
   const t = active?.timer;
-  if (t && t.running && !t.finished && !confirm('Stop the timer?')) return;
+  if (t && t.running && !t.finished) {
+    // Sessions that get logged: stopping early still takes you to the log with what you did.
+    if (active.onDoneHash) {
+      if (!confirm('Stop the session here? You can log what you did.')) return;
+      return timerLog();
+    }
+    if (!confirm('Stop the timer?')) return;
+  }
   closeTimer();
 });
-on('timer-log', () => {
+function timerLog() {
   const t = active.timer;
-  ui.timerResult = { planId: active.planId, sec: Math.round(t.totalElapsed) };
+  const reached = t.finished ? active.segs.length : t.idx;
+  let rounds = 0, lastFin = -1;
+  active.segs.forEach((s, i) => { if (s.fin) lastFin = i; });
+  for (let i = 0; i < reached; i++) {
+    const s = active.segs[i];
+    if (s.k === 'work' && s.round) rounds = Math.max(rounds, s.round);
+  }
+  // Finisher counts as done once every finisher step has been passed.
+  ui.timerResult = { ...(active.meta || {}), planId: active.planId, sec: Math.round(t.totalElapsed), rounds, fin: lastFin >= 0 && reached > lastFin };
   const hash = active.onDoneHash;
   closeTimer();
   if (hash) go(hash);
-});
+}
+on('timer-log', timerLog);
 function closeTimer() {
   active?.timer?.stop();
   active = null;

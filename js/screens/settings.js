@@ -2,6 +2,8 @@
 import { state, replaceState, resetState } from '../store.js';
 import * as U from '../util.js';
 import { on, card, field, commit, toast, go } from '../core.js';
+import { rerender } from '../core.js';
+import { englishVoices, pickVoice, say, beepShort, beepChange, beepDone } from '../timer.js';
 
 // ---- export / import ----------------------------------------------------------------------
 async function shareOrDownload(text, filename, mime) {
@@ -82,7 +84,7 @@ on('reset-all', async () => {
 });
 
 on('pref', (el) => {
-  state.settings[el.dataset.key] = el.type === 'checkbox' ? el.checked : el.value;
+  state.settings[el.dataset.key] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? Number(el.value) : el.value;
   if (el.dataset.key === 'theme') {
     if (el.value === 'auto') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.dataset.theme = el.value;
@@ -117,9 +119,12 @@ export function renderSettings() {
     <a class="btn btn-ghost btn-block" href="#/edit/advanced">Advanced: edit raw data</a>`);
 
   html += card(`<h2>Timer and display</h2>
-    <label class="check"><input type="checkbox" data-change="pref" data-key="timerSound" ${s.timerSound ? 'checked' : ''}> Beeps</label>
+    <label class="check"><input type="checkbox" data-change="pref" data-key="timerSound" ${s.timerSound ? 'checked' : ''}> Sounds (soft chimes)</label>
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVoice" ${s.timerVoice ? 'checked' : ''}> Voice cues (good with headphones)</label>
     <label class="check"><input type="checkbox" data-change="pref" data-key="timerVibrate" ${s.timerVibrate ? 'checked' : ''}> Vibrate (Android only, iPhone does not allow it)</label>
+    ${field('Sound volume', `<input type="range" min="0" max="1" step="0.05" value="${s.timerVolume ?? 0.5}" data-change="pref" data-key="timerVolume" class="range">`)}
+    ${field('Voice', `<select data-change="pref" data-key="timerVoiceName"><option value="">Most natural available (automatic)</option>${voiceOptions(s.timerVoiceName)}</select>`, 'For a softer, more human voice, download an Enhanced or Premium voice: iPhone Settings, Accessibility, Spoken Content, Voices, English. Then pick it here.')}
+    <div class="btn-row"><button class="btn" data-act="test-sound">Test sounds</button><button class="btn" data-act="test-voice">Test voice</button></div>
     ${field('Theme', `<select data-change="pref" data-key="theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<option value="${v}" ${s.theme === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}`);
 
   html += card(`<h2>Install on your iPhone</h2>
@@ -133,12 +138,29 @@ export function renderSettings() {
       <li>Settings, <b>Export full backup</b>. Save it to Files, in OneDrive or iCloud Drive.</li>
       <li>To move to a new phone or the laptop, open the app there and tap <b>Restore from backup</b>.</li>
     </ol>
+    <h3>Guided sessions</h3>
+    <p class="muted">On gym days tap Start session. The timer runs the warm-up, each set, changeovers, round rests, the finisher and cool-down, with a photo of every exercise. Stop early or finish, then tap Log it - your rounds are filled in for you. Timings are in Goals and targets.</p>
     <h3>Interval timer</h3>
     <p class="muted">Keep the timer screen open. It keeps the screen awake and beeps at each change. iPhone pauses web apps when the screen locks, so beeps stop while locked, but the timer catches up when you unlock.</p>`, 'card-quiet');
 
+  html += `<p class="muted center credit">Exercise photos: Free Exercise DB (github.com/yuhonas/free-exercise-db), public domain.</p>`;
   html += `<button class="btn btn-danger btn-block" data-act="reset-all">Reset all data</button>`;
   return { title: 'Settings', html };
 }
+
+// ---- timer voice and sound tests -------------------------------------------------------------------
+function voiceOptions(current) {
+  const list = englishVoices().sort((x, y) => x.name.localeCompare(y.name));
+  return list.map((v) => `<option value="${U.esc(v.name)}" ${v.name === current ? 'selected' : ''}>${U.esc(v.name)} (${U.esc(v.lang)})${/premium|enhanced|natural|neural/i.test(v.name) ? ' - natural' : ''}</option>`).join('');
+}
+// Voices load after the page on some phones: refresh the list once they arrive.
+if (window.speechSynthesis) speechSynthesis.addEventListener?.('voiceschanged', () => { if (location.hash.startsWith('#/settings')) rerender(); });
+on('test-voice', () => {
+  const v = pickVoice();
+  say(`Goblet squat. Round two of three. Twelve to fifteen reps.${v ? '' : ''}`, true);
+  if (v) toast(`Voice: ${v.name}`);
+});
+on('test-sound', () => { beepShort(); setTimeout(beepShort, 700); setTimeout(beepChange, 1500); setTimeout(beepDone, 3000); });
 
 // ---- program editor -----------------------------------------------------------------------------
 const UNITS = [['reps', 'reps'], ['each', 'reps each side'], ['sec', 'seconds'], ['secEach', 'seconds each side'], ['m', 'metres']];
@@ -174,6 +196,15 @@ const SECTIONS = {
     { key: 'settings.targets.stepsHigh', label: 'Steps high', type: 'num', half: true },
     { key: 'settings.targets.fibreG', label: 'Fibre (g)', type: 'num' },
     { key: 'settings.longTermGoal', label: 'Longer-term goal', type: 'textarea' },
+  ] }, { heading: 'Guided strength sessions (seconds)', fields: [
+    { key: 'settings.timing.sessionMinutes', label: 'Session length (min)', type: 'num', half: true },
+    { key: 'settings.timing.work', label: 'Work per set', type: 'num', half: true },
+    { key: 'settings.timing.sideWork', label: 'Work per side (single-side moves)', type: 'num', half: true },
+    { key: 'settings.timing.transition', label: 'Changeover between exercises', type: 'num', half: true },
+    { key: 'settings.timing.roundRest', label: 'Rest between rounds', type: 'num', half: true },
+    { key: 'settings.timing.switchSec', label: 'Switch sides', type: 'num', half: true },
+    { key: 'settings.timing.warmup', label: 'Warm-up', type: 'num', half: true },
+    { key: 'settings.timing.cooldown', label: 'Cool-down', type: 'num', half: true },
   ] }] },
   equipment: { title: 'Equipment', blocks: [{ fields: [
     { key: 'program.equipment', label: 'Equipment (one per line)', type: 'lines' },
@@ -190,6 +221,7 @@ const SECTIONS = {
       { key: 'load', label: 'Log a weight', type: 'check', half: true },
       { key: 'cue', label: 'Form cue', type: 'textarea' },
       { key: 'swaps', label: 'Swap options (one per line)', type: 'lines' },
+      { key: 'work', label: 'Guided set time in sec (blank = default)', type: 'num' },
       { key: 'fromWeek', label: 'Change to a harder version from week', type: 'num', half: true },
       { key: 'laterName', label: 'Harder version name', type: 'text', half: true },
       { key: 'id', label: 'ID (used in strength sessions)', type: 'text', readonly: true },

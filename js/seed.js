@@ -36,8 +36,12 @@ export const settings = {
   dumbbellPairs: [10, 12.5, 15, 17.5, 20, 22.5, 25, 30, 35, 40],
   dumbbellSingles: [1, 2, 3],
   theme: 'auto',
+  // Guided strength sessions (seconds). Rounds are fitted to sessionMinutes.
+  timing: { sessionMinutes: 45, work: 45, sideWork: 35, switchSec: 5, transition: 15, roundRest: 75, warmup: 240, cooldown: 180 },
   timerSound: true,
   timerVoice: true,
+  timerVoiceName: '', // blank = pick the most natural voice automatically
+  timerVolume: 0.5,
   timerVibrate: true,
 };
 
@@ -224,6 +228,26 @@ export const floating = {
 };
 
 export const tueMobility = ['calfWall', 'hipFlexor', 'hip9090'];
+
+// Exercise name -> photo set in img/ex (start and end photos, -0.jpg and -1.jpg).
+// Photos from Free Exercise DB (github.com/yuhonas/free-exercise-db), public domain.
+export const exerciseImages = {
+  'Goblet squat': 'Goblet_Squat', 'Dumbbell box squat to bench': 'Dumbbell_Squat_To_A_Bench', 'Heels-elevated goblet squat': 'Goblet_Squat',
+  'Dumbbell Romanian deadlift': 'Stiff-Legged_Dumbbell_Deadlift', 'Barbell Romanian deadlift (light)': 'Romanian_Deadlift', 'Single-leg dumbbell RDL': 'Kettlebell_One-Legged_Deadlift',
+  'Reverse lunge': 'Dumbbell_Rear_Lunge', 'Split squat': 'Split_Squat_with_Dumbbells', 'Step-up onto bench': 'Dumbbell_Step_Ups',
+  'Glute bridge': 'Butt_Lift_Bridge', 'Single-leg glute bridge': 'Single_Leg_Glute_Bridge', 'Hip thrust off bench (dumbbell on hips)': 'Barbell_Hip_Thrust', 'Banded glute bridge': 'Butt_Lift_Bridge',
+  'Single-leg calf raise': 'Calf_Raise_On_A_Dumbbell', 'Double-leg calf raise with dumbbells': 'Standing_Dumbbell_Calf_Raise', 'Bent-knee calf raise (soleus)': 'Dumbbell_Seated_One-Leg_Calf_Raise',
+  'Dead bug': 'Dead_Bug', 'Banded dead bug': 'Dead_Bug',
+  'Side plank': 'Side_Bridge', 'Side plank from knees': 'Side_Bridge', 'Suitcase carry': 'Farmers_Walk',
+  'Push-up or dumbbell bench press': 'Pushups', 'Dumbbell bench press': 'Dumbbell_Bench_Press', 'Incline dumbbell press': 'Incline_Dumbbell_Press', 'Feet-elevated push-up': 'Push-Ups_With_Feet_Elevated',
+  'One-arm dumbbell row': 'One-Arm_Dumbbell_Row', 'Chest-supported row on incline bench': 'Dumbbell_Incline_Row', 'Inverted row under rack bar': 'Inverted_Row',
+  'Light dumbbell shoulder press': 'Dumbbell_Shoulder_Press', 'Half-kneeling single-arm press': 'Dumbbell_One-Arm_Shoulder_Press',
+  'Band pull-apart or face pull': 'Band_Pull_Apart', 'Band face pull anchored to rack': 'Face_Pull', 'Prone Y-T raise (1 - 3 kg dumbbells)': 'Lying_Rear_Delt_Raise',
+  'Farmer carry': 'Farmers_Walk', 'Suitcase carry (one side)': 'Farmers_Walk', 'Farmer hold (40 sec, standing)': 'Farmers_Walk',
+  'Pallof press or plank shoulder taps': 'Pallof_Press', 'Plank shoulder taps': 'Plank', 'Half-kneeling band chop': 'Standing_Cable_Wood_Chop',
+  'Calf stretch against wall': 'Calf_Stretch_Hands_Against_Wall', 'Kneeling hip flexor stretch': 'Kneeling_Hip_Flexor', 'Hamstring stretch': 'Lying_Hamstring',
+  'Cat-cow': 'Cat_Stretch', 'Doorway chest stretch': 'Dynamic_Chest_Stretch', "Child's pose": 'Childs_Pose',
+};
 
 // ---- mobility ---------------------------------------------------------------------
 // sides: 2 = do each side, 1 = once
@@ -412,7 +436,7 @@ export function buildInitialState() {
     schema: 1,
     seedVersion: SEED_VERSION,
     settings: structuredClone(settings),
-    program: structuredClone({ equipment, exercises, strength, weeks, phases, template, floating, tueMobility, mobility }),
+    program: structuredClone({ equipment, exercises, strength, weeks, phases, template, floating, tueMobility, mobility, exerciseImages }),
     nutrition: structuredClone(nutrition),
     activities: structuredClone(historyActivities),
     days: {},     // 'YYYY-MM-DD' -> { weight, mobility, n: { shake, protein, water, veg, steps }, kcal, proteinG }

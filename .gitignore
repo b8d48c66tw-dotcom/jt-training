@@ -1,1 +1,8 @@
 design/
+.claude/
+# Anything dropped in the top folder that is not part of the app
+/*.jpg
+/*.jpeg
+/*.png
+/*.heic
+/*.pdf

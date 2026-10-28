@@ -29,35 +29,71 @@ function ctx() {
   if (audio && audio.state === 'suspended') audio.resume();
   return audio;
 }
-function tone(freq, dur, when = 0, vol = 0.6) {
+// Soft chime: a sine tone with a gentle attack, a quiet overtone and a long natural fade.
+function chime(freq, when = 0, dur = 0.9, level = 1) {
   const a = ctx();
   if (!a) return;
-  const o = a.createOscillator();
-  const g = a.createGain();
-  o.type = 'square';
-  o.frequency.value = freq;
-  g.gain.setValueAtTime(vol, a.currentTime + when);
-  g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur);
-  o.connect(g).connect(a.destination);
-  o.start(a.currentTime + when);
-  o.stop(a.currentTime + when + dur + 0.05);
+  const vol = Math.max(0, Math.min(1, state.settings.timerVolume ?? 0.5)) * 0.35 * level;
+  if (!vol) return;
+  const t0 = a.currentTime + when;
+  const out = a.createGain();
+  out.gain.setValueAtTime(0.0001, t0);
+  out.gain.linearRampToValueAtTime(vol, t0 + 0.015);
+  out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  out.connect(a.destination);
+  [[1, 1], [2, 0.18], [3, 0.05]].forEach(([mult, amp]) => {
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq * mult;
+    g.gain.value = amp;
+    o.connect(g).connect(out);
+    o.start(t0);
+    o.stop(t0 + dur + 0.05);
+  });
 }
-export function beepShort() { if (state.settings.timerSound) tone(880, 0.12); }
+// Countdown 3-2-1: a quiet, short tick.
+export function beepShort() { if (state.settings.timerSound) chime(660, 0, 0.25, 0.45); }
+// Step change: two soft rising notes.
 export function beepChange() {
-  if (state.settings.timerSound) { tone(1320, 0.25); tone(1320, 0.4, 0.32); }
-  if (state.settings.timerVibrate) navigator.vibrate?.([250, 120, 250]);
+  if (state.settings.timerSound) { chime(784, 0, 0.8); chime(1047, 0.16, 1.0); }
+  if (state.settings.timerVibrate) navigator.vibrate?.([200, 100, 200]);
 }
+// Session done: a gentle three-note arpeggio.
 export function beepDone() {
-  if (state.settings.timerSound) { tone(990, 0.2); tone(1320, 0.2, 0.25); tone(1760, 0.5, 0.5); }
-  if (state.settings.timerVibrate) navigator.vibrate?.([400, 150, 400, 150, 400]);
+  if (state.settings.timerSound) { chime(659, 0, 1.0); chime(784, 0.2, 1.0); chime(1047, 0.4, 1.6); }
+  if (state.settings.timerVibrate) navigator.vibrate?.([300, 120, 300]);
 }
-function say(text) {
-  if (!state.settings.timerVoice || !window.speechSynthesis) return;
+
+// ---- voice -----------------------------------------------------------------------------------------
+// Picks the most natural English voice on the device: a chosen one first, then Enhanced/Premium
+// (downloaded) voices, preferring Australian, then British, then any English.
+const NATURAL = /premium|enhanced|natural|neural|siri/i;
+export function englishVoices() {
+  if (!window.speechSynthesis) return [];
+  return speechSynthesis.getVoices().filter((v) => /^en[-_]/i.test(v.lang));
+}
+export function pickVoice() {
+  const voices = englishVoices();
+  if (!voices.length) return null;
+  const chosen = state.settings.timerVoiceName && voices.find((v) => v.name === state.settings.timerVoiceName);
+  if (chosen) return chosen;
+  const score = (v) => (NATURAL.test(v.name) ? 100 : 0) + (/en[-_]AU/i.test(v.lang) ? 20 : /en[-_]GB/i.test(v.lang) ? 10 : 0) + (v.localService ? 5 : 0)
+    + (/karen|catherine|lee|serena|kate|daniel|samantha/i.test(v.name) ? 3 : 0);
+  return [...voices].sort((x, y) => score(y) - score(x))[0];
+}
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => {}; // voices load lazily on some phones
+
+export function say(text, force = false) {
+  if ((!state.settings.timerVoice && !force) || !window.speechSynthesis) return;
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/ - tap Next when done/i, ''));
-    u.lang = 'en-AU';
-    u.rate = 1.05;
+    const u = new SpeechSynthesisUtterance(text.replace(/ - tap Next when done/i, '').replace(/Get ready: /, 'Next up, '));
+    const v = pickVoice();
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-AU';
+    u.rate = 0.92;
+    u.pitch = 1;
+    u.volume = Math.max(0.2, Math.min(1, (state.settings.timerVolume ?? 0.5) + 0.3));
     speechSynthesis.speak(u);
   } catch (e) { /* ignore */ }
 }

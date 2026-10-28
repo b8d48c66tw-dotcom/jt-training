@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'jt-training-v5';
+const VERSION = 'jt-training-v7';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/core.js', './js/store.js', './js/seed.js', './js/plan.js', './js/util.js', './js/timer.js', './js/charts.js',
@@ -9,7 +9,14 @@ const FILES = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // App files plus every exercise photo, so guided sessions work offline at the gym.
+  e.waitUntil(
+    caches.open(VERSION)
+      .then((c) => c.addAll(FILES).then(() => fetch('./img/ex/list.json'))
+        .then((r) => r.json())
+        .then((list) => c.addAll(list.map((f) => `./img/ex/${f}`))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {

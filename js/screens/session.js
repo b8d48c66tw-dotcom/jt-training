@@ -2,21 +2,68 @@
 import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, pill, scale, field, formData, commit, toast, go, openTimer } from '../core.js';
+import { on, ui, card, pill, scale, field, formData, commit, toast, go, openTimer, flip } from '../core.js';
 
 const RUN_KINDS = { easy: 'Easy', runwalk: 'Run/walk', long: 'Long easy', tempo: 'Tempo or intervals', race: 'Race' };
 
 // ---- strength ----------------------------------------------------------------------------
+// The "start guided session" card: round options with how long each takes.
+export function guidedCard(key, n, date, planId, hash) {
+  const { opts, best, planned } = P.guidedOptions(key, n, date);
+  const T = state.settings.timing;
+  const btn = (o, primary) => `<button type="button" class="btn ${primary ? 'btn-primary btn-lg btn-block' : 'btn-sm'}" data-act="guided" data-key="${key}" data-n="${n}" data-date="${date}" data-r="${o.rounds}" data-c="${o.compress ? 1 : ''}" data-id="${planId || ''}" data-hash="${U.esc(hash)}">${primary ? `Start session - ${o.rounds} rounds, ${o.min} min` : `${o.rounds} rounds - ${o.min} min`}</button>`;
+  return card(`<div class="kicker teal">Guided session</div>
+    <p>Press start and the timer runs everything: warm-up, ${T.work} sec sets (${T.sideWork} sec each side for single-side moves), ${T.transition} sec changeovers, ${T.roundRest} sec rest between rounds, the finisher and a cool-down.</p>
+    ${best.rounds < planned ? `<p class="muted">The plan says ${planned} rounds this week - ${best.rounds} fit${best.compress ? ' with shorter rests' : ''} in about ${T.sessionMinutes} min.</p>` : best.compress ? '<p class="muted">Rests are slightly shorter to fit the time.</p>' : ''}
+    ${btn(best, true)}
+    <div class="btn-row">${opts.filter((o) => o.rounds !== best.rounds || best.compress).map((o) => btn(o, false)).join('')}</div>`, 'card-guided');
+}
+
+function guidedSummary(g, date, n, names) {
+  const exs = g.info.def.exercises.map((id) => P.exerciseById(id)).filter(Boolean).map((e) => P.exerciseForWeek(e, n));
+  const T = state.settings.timing;
+  return `<ul class="t-plan">
+    <li><b>Warm-up</b> ${Math.round(T.warmup / 60)} min</li>
+    <li><b>${g.rounds} rounds</b> of ${exs.length} exercises${g.compress ? ' (shorter rests)' : ''}</li>
+    ${exs.map((ex, i) => {
+      const name = names?.[i] || ex.name;
+      const kg = ex.load ? P.suggestedWeight(ex, name, date) : null;
+      return `<li class="t-ex">${flip(P.imgFor(name), 'flip-xs') || '<div class="flip-xs flip-none"></div>'}<span>${U.esc(name)}<small>${U.esc(P.fmtTarget(ex))}${kg ? ` - ${kg} kg` : ''}</small></span></li>`;
+    }).join('')}
+    <li><b>Finisher</b> ${U.esc(g.info.finisher.label)}</li>
+    <li><b>Cool-down</b> ${Math.round((g.compress ? Math.min(T.cooldown, 120) : T.cooldown) / 60)} min</li>
+  </ul>`;
+}
+
+on('guided', (el) => {
+  const d = el.dataset;
+  const n = Number(d.n);
+  // Use any swaps already chosen on the session screen.
+  const form = el.closest('main')?.querySelector('form.log-form');
+  const names = form ? [...form.querySelectorAll('select[name$=".name"]')].map((s) => s.value) : null;
+  const g = P.guidedStrength(d.key, n, Number(d.r), d.date, !!d.c, names);
+  openTimer({ title: `${g.info.title} - ${g.rounds} rounds`, segments: g.segs, planId: d.id || null, onDoneHash: d.hash || location.hash, summary: guidedSummary(g, d.date, n, names), meta: { names } });
+});
+on('ex-swap', (el) => {
+  const slot = el.closest('.card-ex')?.querySelector('.flip-slot');
+  if (slot) slot.innerHTML = flip(P.imgFor(el.value));
+});
+
 function strengthForm(ctx) {
   const { info, act, n, date } = ctx;
   const def = info.def;
   const exs = def.exercises.map((id) => P.exerciseById(id)).filter(Boolean);
-  let html = `<div class="note">${U.esc(def.format)}</div>
+  // Coming back from a guided session: pre-fill the rounds you completed at the top of the range.
+  const tr = !act && ui.timerResult && ui.timerResult.planId === (ctx.item?.id ?? null) && ui.timerResult.rounds != null ? ui.timerResult : null;
+  let html = '';
+  if (tr) html += `<div class="note note-good">Filled in from your guided session: ${tr.rounds} round${tr.rounds === 1 ? '' : 's'} at the top of the rep range. Change any you missed, add the weights you used and your effort, then save.</div>`;
+  else if (!act) html += guidedCard(ctx.key, n, date, ctx.item?.id, location.hash);
+  html += `<div class="note">${U.esc(def.format)}</div>
     ${card(`<h3>Warm-up</h3><p>${U.esc(def.warmup)}</p>`, 'card-quiet')}`;
   html += exs.map((base, i) => {
     const ex = P.exerciseForWeek(base, n);
     const logged = act?.exercises?.[i];
-    const chosen = logged?.name || ex.name;
+    const chosen = logged?.name || tr?.names?.[i] || ex.name;
     const options = [ex.name, ...(ex.baseName ? [ex.baseName] : []), ...(ex.swaps || [])];
     if (!options.includes(chosen)) options.unshift(chosen);
     const hist = P.exerciseHistory(chosen).filter((h) => h.date < date);
@@ -27,13 +74,14 @@ function strengthForm(ctx) {
     const rounds = Math.max(info.rounds, 4);
     let reps = '';
     for (let r = 0; r < rounds; r++) {
-      const v = logged?.reps?.[r] ?? '';
+      const v = logged?.reps?.[r] ?? (tr && r < tr.rounds ? ex.max : '');
       reps += `<input class="rep ${r >= info.rounds ? 'opt' : ''}" name="ex.${i}.r${r}" type="number" inputmode="numeric" value="${v}" placeholder="${r < info.rounds ? ex.max : '-'}" aria-label="Round ${r + 1} ${unitLbl}">`;
     }
     return card(`<div class="ex-head"><span class="ex-num">${i + 1}</span><div><div class="ex-name">${U.esc(ex.name)}</div><div class="muted">${U.esc(P.fmtTarget(ex))}</div></div></div>
+      <div class="flip-slot">${flip(P.imgFor(chosen))}</div>
       ${ready ? `<div class="badge-up">&#9650; Ready to go up - ${U.esc(ready.suggestion)}</div>` : ''}
       <div class="cue">${U.esc(ex.cue)}</div>
-      <label class="field"><span class="lbl">Exercise (swap if needed)</span><select name="ex.${i}.name">${options.map((o) => `<option ${o === chosen ? 'selected' : ''}>${U.esc(o)}</option>`).join('')}</select></label>
+      <label class="field"><span class="lbl">Exercise (swap if needed)</span><select name="ex.${i}.name" data-change="ex-swap">${options.map((o) => `<option ${o === chosen ? 'selected' : ''}>${U.esc(o)}</option>`).join('')}</select></label>
       ${last ? `<div class="muted">Last time (${U.fmtDate(last.date)}): ${last.weight ? `${last.weight} kg x ` : ''}${last.reps.join(', ')}${last.effort ? ` - effort ${last.effort}` : ''}</div>` : ''}
       <div class="ex-row">
         ${ex.load ? `<label class="field w-kg"><span class="lbl">kg</span><input name="ex.${i}.weight" type="number" inputmode="decimal" step="0.5" value="${weight ?? ''}" placeholder="kg"></label>` : `<input type="hidden" name="ex.${i}.weight" value="">`}
@@ -45,10 +93,10 @@ function strengthForm(ctx) {
   const fin = info.finisher;
   html += card(`<h3>Finisher</h3><p><b>${U.esc(fin.label)}</b></p>
     <button type="button" class="btn btn-lg btn-block" data-act="fin-timer">Start finisher timer</button>
-    <label class="check"><input type="checkbox" name="finisherDone" ${act?.finisherDone || (!act && false) ? 'checked' : ''}> Finisher done</label>`);
+    <label class="check"><input type="checkbox" name="finisherDone" ${act?.finisherDone || tr?.fin ? 'checked' : ''}> Finisher done</label>`);
   html += card(`${scale('effort', act?.effort, { label: 'Session effort (1 - 10). 6 or under with all reps at the top = go up next time.' })}
     <div class="row2">
-      ${field('Duration (min)', `<input name="durationMin" type="number" inputmode="numeric" value="${act?.durationSec ? Math.round(act.durationSec / 60) : ''}" placeholder="${info.minutes}">`)}
+      ${field('Duration (min)', `<input name="durationMin" type="number" inputmode="numeric" value="${act?.durationSec ? Math.round(act.durationSec / 60) : tr ? Math.round(tr.sec / 60) || '' : ''}" placeholder="${info.minutes}">`)}
       ${field('Avg HR', `<input name="avgHr" type="number" inputmode="numeric" value="${act?.avgHr ?? ''}">`)}
     </div>
     ${field('Notes', `<textarea name="notes" rows="2">${U.esc(act?.notes || '')}</textarea>`)}`);
@@ -106,7 +154,7 @@ function runForm(ctx) {
       <button type="button" class="btn btn-xl btn-go btn-block" data-act="run-timer">Start interval timer</button>`);
     if (ctx.key === 'tueRun') {
       const drills = state.program.tueMobility.map((id) => state.program.mobility.find((m) => m.id === id)).filter(Boolean);
-      html += card(`<h3>After the run: 5 min calf and hip mobility</h3><ul class="drills">${drills.map((m) => `<li><b>${U.esc(m.name)}</b> <span class="muted">${m.sides === 2 ? `${m.hold} sec each side` : `${m.hold} sec`}</span><div class="cue">${U.esc(m.cue)}</div></li>`).join('')}</ul>`, 'card-quiet');
+      html += card(`<h3>After the run: 5 min calf and hip mobility</h3><ul class="drills">${drills.map((m) => `<li class="drill">${flip(P.imgFor(m.name), 'flip-sm') || '<div class="flip-sm flip-none"></div>'}<div><b>${U.esc(m.name)}</b> <span class="muted">${m.sides === 2 ? `${m.hold} sec each side` : `${m.hold} sec`}</span><div class="cue">${U.esc(m.cue)}</div></div></li>`).join('')}</ul>`, 'card-quiet');
     }
   }
   const timerSec = ui.timerResult && ui.timerResult.planId === (item?.id ?? null) ? ui.timerResult.sec : null;

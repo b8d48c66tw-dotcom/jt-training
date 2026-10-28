@@ -1,6 +1,7 @@
 // Schedule logic (what's planned, moved, done) and progress statistics.
 import { state, peekDay } from './store.js';
 import * as U from './util.js';
+import { flatten, totalSec } from './timer.js';
 
 export const CORE = ['strengthA', 'tueRun', 'strengthB', 'sunRun'];
 export const isCore = (k) => CORE.includes(k);
@@ -328,11 +329,79 @@ export function mobilitySegments(drills) {
   const segs = [];
   for (const m of drills) {
     if (m.sides === 2) {
-      segs.push({ l: `${m.name} - left`, s: m.hold, k: 'hold', cue: m.cue });
-      segs.push({ l: `${m.name} - right`, s: m.hold, k: 'hold', cue: m.cue });
-    } else segs.push({ l: m.name, s: m.hold, k: 'hold', cue: m.cue });
+      segs.push({ l: `${m.name} - left`, s: m.hold, k: 'hold', cue: m.cue, img: imgFor(m.name) });
+      segs.push({ l: `${m.name} - right`, s: m.hold, k: 'hold', cue: m.cue, img: imgFor(m.name) });
+    } else segs.push({ l: m.name, s: m.hold, k: 'hold', cue: m.cue, img: imgFor(m.name) });
     segs.push({ l: 'Change', s: 5, k: 'rest' });
   }
   segs.pop();
   return segs;
+}
+
+// ---- exercise photos -------------------------------------------------------------------------
+export const imgFor = (name) => (name && state.program.exerciseImages?.[name]) || null;
+
+// ---- guided strength sessions -------------------------------------------------------------------
+// Weight to use for an exercise: last time's weight, or the next one up if "ready to go up".
+export function suggestedWeight(ex, name, date) {
+  const h = exerciseHistory(name).filter((x) => x.date < date);
+  const last = h[h.length - 1];
+  if (!last || !last.weight) return null;
+  return readyToGoUp(ex, name, date) ? nextWeight(last.weight) ?? last.weight : last.weight;
+}
+
+// Builds the timed sequence: warm-up, rounds of timed sets with changeovers, round rests,
+// finisher and cool-down. compress = shorter rests so more rounds fit the time budget.
+export function guidedStrength(key, n, rounds, date, compress = false, names = null) {
+  const info = sessionInfo(key, n);
+  const T = state.settings.timing;
+  const tr = compress ? Math.min(T.transition, 10) : T.transition;
+  const rest = compress ? Math.min(T.roundRest, 60) : T.roundRest;
+  const cool = compress ? Math.min(T.cooldown, 120) : T.cooldown;
+  const exs = info.def.exercises.map((id) => exerciseById(id)).filter(Boolean).map((e) => exerciseForWeek(e, n));
+  const segs = [{ l: 'Warm-up', s: T.warmup, k: 'warm', cue: info.def.warmup }];
+  for (let r = 1; r <= rounds; r++) {
+    exs.forEach((ex, i) => {
+      const name = names?.[i] || ex.name;
+      const img = imgFor(name);
+      const kg = ex.load ? suggestedWeight(ex, name, date) : null;
+      const sub = `${fmtTarget(ex)}${kg ? ` - ${kg} kg` : ''}`;
+      const timed = ex.unit === 'sec' || ex.unit === 'secEach';
+      const sides = ex.unit === 'each' || ex.unit === 'secEach';
+      const work = ex.work || (timed ? ex.max : sides ? T.sideWork : T.work);
+      segs.push({ l: `Get ready: ${name}`, s: tr, k: 'ready', img, sub, round: r, rounds });
+      if (sides) {
+        segs.push({ l: name, s: work, k: 'work', img, sub: `Left side - ${sub}`, cue: ex.cue, round: r, rounds });
+        segs.push({ l: 'Switch sides', s: T.switchSec, k: 'switch', img, round: r, rounds });
+        segs.push({ l: name, s: work, k: 'work', img, sub: `Right side - ${sub}`, cue: ex.cue, round: r, rounds });
+      } else {
+        segs.push({ l: name, s: work, k: 'work', img, sub, cue: ex.cue, round: r, rounds });
+      }
+    });
+    if (r < rounds) segs.push({ l: 'Round rest - water and breathe', s: rest, k: 'rest', img: imgFor(names?.[0] || exs[0]?.name), sub: `Round ${r + 1} of ${rounds} next: ${names?.[0] || exs[0]?.name}` });
+  }
+  segs.push({ l: 'Set up for the finisher', s: 30, k: 'ready', sub: info.finisher.label, fin: true });
+  for (const s of flatten(info.finisher.segments)) segs.push({ ...s, fin: true });
+  segs.push({ l: 'Cool-down stretch', s: cool, k: 'hold', cue: 'Hip flexors, hamstrings, chest and shoulders. Slow breathing.' });
+  return { segs, total: totalSec(segs), rounds, compress, info };
+}
+
+// Round options with their length, and the best fit for the time budget.
+export function guidedOptions(key, n, date) {
+  const info = sessionInfo(key, n);
+  const budget = (state.settings.timing.sessionMinutes + 3) * 60;
+  const planned = info.rounds;
+  const opts = [];
+  for (let r = 2; r <= Math.max(4, planned); r++) {
+    const normal = guidedStrength(key, n, r, date);
+    opts.push({ rounds: r, compress: false, min: Math.round(normal.total / 60) });
+  }
+  let best = null;
+  for (let r = planned; r >= 2 && !best; r--) {
+    if (guidedStrength(key, n, r, date).total <= budget) best = { rounds: r, compress: false };
+    else if (guidedStrength(key, n, r, date, true).total <= budget) best = { rounds: r, compress: true };
+  }
+  best = best || { rounds: 2, compress: false };
+  best.min = Math.round(guidedStrength(key, n, best.rounds, date, best.compress).total / 60);
+  return { opts, best, planned };
 }
