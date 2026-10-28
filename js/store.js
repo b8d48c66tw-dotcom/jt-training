@@ -74,6 +74,18 @@ function migrate(s) {
     const keep = new Set(fresh.program.extraSessions.map((x) => `${x.date}:${x.key}`));
     for (const a of s.activities) if (a.planId && a.planId.slice(0, 10) < fresh.settings.startDate && !keep.has(a.planId)) a.planId = null;
   }
+  // v4: research-based update - phase rest periods, effort targets, longer finisher intervals, guided warm-ups.
+  if ((s.seedVersion || 1) < 4) {
+    s.program.weeks = fresh.program.weeks.map((w, i) => ({ ...w, start: s.program.weeks[i]?.start || w.start }));
+    for (const k of ['strengthA', 'strengthB']) {
+      if (!s.program.strength[k]) continue;
+      s.program.strength[k].warmupSteps = fresh.program.strength[k].warmupSteps;
+      s.program.strength[k].warmup = fresh.program.strength[k].warmup;
+      s.program.strength[k].format = fresh.program.strength[k].format;
+    }
+    s.program.exerciseImages = { ...fresh.program.exerciseImages, ...s.program.exerciseImages };
+    if (s.settings.timing) s.settings.timing.warmup = fresh.settings.timing.warmup;
+  }
   s.seedVersion = Math.max(s.seedVersion || 1, fresh.seedVersion);
   return s;
 }

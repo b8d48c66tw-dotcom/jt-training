@@ -3,7 +3,7 @@
 // editable from Settings > Edit program. Changing this file later does not
 // overwrite what is already on the phone.
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 // ---- helpers for building interval segments -------------------------------
 // Segment: { l: label, s: seconds (0 = open-ended, tap Next when done), k: kind }
@@ -37,7 +37,7 @@ export const settings = {
   dumbbellSingles: [1, 2, 3],
   theme: 'auto',
   // Guided strength sessions (seconds). Rounds are fitted to sessionMinutes.
-  timing: { sessionMinutes: 45, work: 45, sideWork: 35, switchSec: 5, transition: 15, roundRest: 75, warmup: 240, cooldown: 180 },
+  timing: { sessionMinutes: 45, work: 45, sideWork: 35, switchSec: 5, transition: 15, roundRest: 75, warmup: 300, cooldown: 180 },
   timerSound: true,
   timerVoice: true,
   timerVoiceName: '', // blank = pick the most natural voice automatically
@@ -114,30 +114,46 @@ export const exercises = [
 export const strength = {
   strengthA: {
     title: 'Strength A', subtitle: 'Lower body and core plus erg bike finisher', minutes: 40,
-    warmup: '3 - 5 min: 2 min easy BikeErg, 10 bodyweight squats, 5 world\'s greatest stretch each side, 10 glute bridges.',
+    warmup: '5 min guided: easy BikeErg, bodyweight squats, world\'s greatest stretch, glute bridges, calf raises, leg swings.',
+    // Guided warm-up steps (seconds). Longer and more thorough at 38 - and the calf gets extra attention.
+    warmupSteps: [
+      { l: 'Easy BikeErg', s: 90, cue: 'Easy spin, nose breathing, build to a light sweat.' },
+      { l: 'Bodyweight squats', s: 45, cue: 'Slow and deep, 10 - 12 reps.' },
+      { l: "World's greatest stretch", s: 60, cue: 'Lunge, elbow to instep, rotate and reach up. Alternate sides.' },
+      { l: 'Glute bridges', s: 40, cue: 'Squeeze and pause at the top. 10 - 12 reps.' },
+      { l: 'Calf raises', s: 40, cue: 'Slow up, slow down, full range. Calf care.' },
+      { l: 'Leg swings', s: 40, cue: 'Front to back, then side to side. 10 each leg.' },
+    ],
     exercises: ['gobletSquat', 'dbRdl', 'reverseLunge', 'gluteBridge', 'slCalfRaise', 'deadBug', 'sidePlank'],
-    format: 'Circuit. Effort 6 - 7 out of 10 (2 - 4 reps left in the tank). Rest 60 - 90 sec between rounds.',
+    format: 'Circuit: 45 sec sets, 15 sec changeovers, rest between rounds set by the phase. Effort target is in the week notes.',
   },
   strengthB: {
     title: 'Strength B', subtitle: 'Upper body and posterior chain plus rower finisher', minutes: 40,
-    warmup: '3 - 5 min: 2 min easy row, 10 band pull-aparts, 10 band dislocates, 5 inchworms.',
+    warmup: '5 min guided: easy row, band pull-aparts, band dislocates, inchworms, cat-cow, easy push-ups.',
+    warmupSteps: [
+      { l: 'Easy row', s: 90, cue: 'Easy, long strokes. Legs, body, arms.' },
+      { l: 'Band pull-aparts', s: 45, cue: 'Squeeze the shoulder blades, slow return. 15 reps.' },
+      { l: 'Band dislocates', s: 45, cue: 'Wide grip, straight arms, slow over and back.' },
+      { l: 'Inchworms', s: 60, cue: 'Walk the hands out to a plank, then walk back. Slow.' },
+      { l: 'Cat-cow', s: 40, cue: 'Move one segment at a time, slow breathing.' },
+      { l: 'Easy push-ups', s: 40, cue: 'Hands on the bench, 8 - 10 easy reps.' },
+    ],
     exercises: ['pushPress', 'dbRow', 'shoulderPress', 'facePull', 'farmerCarry', 'birdDog', 'pallof'],
-    format: 'Circuit. Effort 6 - 7 out of 10 (2 - 4 reps left in the tank). Rest 60 - 90 sec between rounds.',
+    format: 'Circuit: 45 sec sets, 15 sec changeovers, rest between rounds set by the phase. Effort target is in the week notes.',
   },
 };
 
 // ---- finishers --------------------------------------------------------------
-const bikeFinisher = (x) => ({
-  label: `BikeErg ${x} x 30 sec hard / 30 sec easy`,
-  segments: [{ x, dropLast: false, items: [seg('Hard', 0.5, 'hard'), seg('Easy spin', 0.5, 'easy')] }],
+// Intervals progress from short (30 sec) to longer (2 min) efforts: longer intervals give bigger
+// aerobic gains, short ones are a gentler start.
+const dur = (min) => (min < 1 ? `${Math.round(min * 60)} sec` : `${min} min`);
+const bikeFinisher = (x, work = 0.5, easy = 0.5) => ({
+  label: `BikeErg ${x} x ${dur(work)} hard / ${dur(easy)} easy`,
+  segments: [{ x, dropLast: false, items: [seg('Hard', work, 'hard'), seg('Easy spin', easy, 'easy')] }],
 });
-const rowMinutes = (x) => ({
-  label: `RowErg ${x} x 1 min hard / 1 min easy`,
-  segments: [{ x, dropLast: false, items: [seg('Row hard', 1, 'hard'), seg('Row easy', 1, 'easy')] }],
-});
-const row250 = (x) => ({
-  label: `RowErg ${x} x 250 m hard with 1 min rest`,
-  segments: [{ x, dropLast: true, items: [open('Row 250 m hard - tap Next when done', 'hard'), seg('Rest', 1, 'rest')] }],
+const rowFinisher = (x, work = 1, easy = 1) => ({
+  label: `RowErg ${x} x ${dur(work)} hard / ${dur(easy)} easy`,
+  segments: [{ x, dropLast: false, items: [seg('Row hard', work, 'hard'), seg('Row easy', easy, 'easy')] }],
 });
 
 // ---- runs ---------------------------------------------------------------------
@@ -195,20 +211,27 @@ const sunRuns = [
 const phaseFor = (n) => (n <= 3 ? 'Rebuild' : n <= 6 ? 'Build' : n === 7 ? 'Push' : n === 8 ? 'Christmas' : 'New Year');
 const weekNotes = {
   1: 'Week 1. Easy does it. Walking to stay under the HR cap is fine. Expect a bigger drop on the scales from water.',
-  4: 'Phase 2 starts. 4 rounds if time allows, single-leg glute bridge, longer finishers.',
-  7: 'Push week. Longer tempo work, and Sunday is the 10 km you owe your brother-in-law.',
+  4: 'Build phase: shorter round rests, longer finisher intervals, single-leg glute bridge.',
+  7: 'Push week: shortest round rests, 2 min finisher intervals, longer tempo work - and Sunday is the 10 km you owe your brother-in-law.',
   8: 'Christmas week. Reduced volume. Goal weigh-in Thursday 24 December.',
   9: 'New Year week. Relaxed volume - keep the habits going into 2027.',
 };
+// Effort per phase (reps in reserve = good reps you could still do at the end of a set).
+const effortFor = (n) => (n <= 3 ? 'Effort 6 - 7: stop with about 3 good reps left'
+  : n <= 6 ? 'Effort 7: stop with about 2 good reps left'
+    : n === 7 ? 'Effort 7 - 8: the last round can finish 1 - 2 reps from failure'
+      : 'Effort 6 - 7: easy week, leave about 3 reps in the tank');
 export const weeks = Array.from({ length: 9 }, (_, i) => {
   const n = i + 1;
   const start = new Date(2026, 10, 2 + i * 7);
   const iso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   const phase = phaseFor(n);
-  const rounds = n <= 3 ? 3 : n <= 7 ? 4 : n === 8 ? 2 : 3;
-  const finA = n <= 3 ? bikeFinisher(8) : n <= 6 ? bikeFinisher(10) : n === 7 ? bikeFinisher(12) : n === 8 ? bikeFinisher(8) : bikeFinisher(10);
-  const finB = n <= 3 ? rowMinutes(5) : n <= 6 ? row250(6) : n === 7 ? row250(8) : n === 8 ? rowMinutes(5) : row250(6);
-  return { n, start: iso, phase, rounds, notes: weekNotes[n] || '', tue: tueRuns[i], sun: sunRuns[i], finA, finB };
+  const rounds = n === 8 ? 2 : 3;
+  const roundRest = n <= 3 ? 90 : n <= 6 ? 75 : n === 7 ? 60 : n === 8 ? 90 : 75;
+  const finA = n <= 3 ? bikeFinisher(8, 0.5, 0.5) : n <= 6 ? bikeFinisher(5, 1, 1) : n === 7 ? bikeFinisher(4, 2, 1) : n === 8 ? bikeFinisher(6, 0.5, 0.5) : bikeFinisher(5, 1, 1);
+  const finB = n <= 3 ? rowFinisher(5, 1, 1) : n <= 6 ? rowFinisher(4, 1.5, 1) : n === 7 ? rowFinisher(4, 2, 1) : n === 8 ? rowFinisher(4, 1, 1) : rowFinisher(4, 1.5, 1);
+  const notes = [weekNotes[n], `${effortFor(n)}. Rest ${roundRest} sec between rounds.`].filter(Boolean).join(' ');
+  return { n, start: iso, phase, rounds, roundRest, effort: effortFor(n), notes, tue: tueRuns[i], sun: sunRuns[i], finA, finB };
 });
 
 export const phases = [
@@ -252,7 +275,7 @@ export const exerciseImages = {
   'Farmer carry': 'Farmers_Walk', 'Suitcase carry (one side)': 'Farmers_Walk', 'Farmer hold (40 sec, standing)': 'Farmers_Walk',
   'Pallof press or plank shoulder taps': 'Pallof_Press', 'Plank shoulder taps': 'Plank', 'Half-kneeling band chop': 'Standing_Cable_Wood_Chop',
   'Calf stretch against wall': 'Calf_Stretch_Hands_Against_Wall', 'Kneeling hip flexor stretch': 'Kneeling_Hip_Flexor', 'Hamstring stretch': 'Lying_Hamstring',
-  'Cat-cow': 'Cat_Stretch', 'Doorway chest stretch': 'Dynamic_Chest_Stretch', "Child's pose": 'Childs_Pose',
+  'Cat-cow': 'Cat_Stretch', 'Glute bridges': 'Butt_Lift_Bridge', 'Calf raises': 'Standing_Dumbbell_Calf_Raise', 'Band pull-aparts': 'Band_Pull_Apart', 'Easy push-ups': 'Pushups', 'Doorway chest stretch': 'Dynamic_Chest_Stretch', "Child's pose": 'Childs_Pose',
 };
 
 // ---- mobility ---------------------------------------------------------------------

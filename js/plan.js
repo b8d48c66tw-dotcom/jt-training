@@ -364,10 +364,14 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
   const info = sessionInfo(key, n);
   const T = state.settings.timing;
   const tr = compress ? Math.min(T.transition, 10) : T.transition;
-  const rest = compress ? Math.min(T.roundRest, 60) : T.roundRest;
+  const w = week(n) || {};
+  const baseRest = w.roundRest ?? T.roundRest;
+  const rest = compress ? Math.min(baseRest, 60) : baseRest;
   const cool = compress ? Math.min(T.cooldown, 120) : T.cooldown;
   const exs = info.def.exercises.map((id) => exerciseById(id)).filter(Boolean).map((e) => exerciseForWeek(e, n));
-  const segs = [{ l: 'Warm-up', s: T.warmup, k: 'warm', cue: info.def.warmup }];
+  const segs = info.def.warmupSteps?.length
+    ? info.def.warmupSteps.map((x) => ({ l: x.l, s: x.s, k: 'warm', cue: x.cue, img: imgFor(x.l) }))
+    : [{ l: 'Warm-up', s: T.warmup, k: 'warm', cue: info.def.warmup }];
   for (let r = 1; r <= rounds; r++) {
     exs.forEach((ex, i) => {
       const name = names?.[i] || ex.name;
@@ -397,7 +401,7 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
 // Round options with their length, and the best fit for the time budget.
 export function guidedOptions(key, n, date) {
   const info = sessionInfo(key, n);
-  const budget = (state.settings.timing.sessionMinutes + 3) * 60;
+  const budget = (state.settings.timing.sessionMinutes + 4) * 60;
   const planned = extraFor(date, key)?.rounds ?? info.rounds;
   const opts = [];
   for (let r = 2; r <= Math.max(4, planned); r++) {

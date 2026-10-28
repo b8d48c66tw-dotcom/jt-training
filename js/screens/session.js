@@ -11,9 +11,12 @@ const RUN_KINDS = { easy: 'Easy', runwalk: 'Run/walk', long: 'Long easy', tempo:
 export function guidedCard(key, n, date, planId, hash) {
   const { opts, best, planned } = P.guidedOptions(key, n, date);
   const T = state.settings.timing;
+  const w = P.week(n) || {};
+  const rest = w.roundRest ?? T.roundRest;
   const btn = (o, primary) => `<button type="button" class="btn ${primary ? 'btn-primary btn-lg btn-block' : 'btn-sm'}" data-act="guided" data-key="${key}" data-n="${n}" data-date="${date}" data-r="${o.rounds}" data-c="${o.compress ? 1 : ''}" data-id="${planId || ''}" data-hash="${U.esc(hash)}">${primary ? `Start session - ${o.rounds} rounds, ${o.min} min` : `${o.rounds} rounds - ${o.min} min`}</button>`;
   return card(`<div class="kicker teal">Guided session</div>
-    <p>Press start and the timer runs everything: warm-up, ${T.work} sec sets (${T.sideWork} sec each side for single-side moves), ${T.transition} sec changeovers, ${T.roundRest} sec rest between rounds, the finisher and a cool-down.</p>
+    <p>Press start and the timer runs everything: a guided warm-up, ${T.work} sec sets (${T.sideWork} sec each side for single-side moves), ${T.transition} sec changeovers, ${rest} sec rest between rounds, the finisher and a cool-down.</p>
+    ${w.effort ? `<p class="muted">${U.esc(w.effort)}.</p>` : ''}
     ${best.rounds < planned ? `<p class="muted">The plan says ${planned} rounds this week - ${best.rounds} fit${best.compress ? ' with shorter rests' : ''} in about ${T.sessionMinutes} min.</p>` : best.compress ? '<p class="muted">Rests are slightly shorter to fit the time.</p>' : ''}
     ${btn(best, true)}
     <div class="btn-row">${opts.filter((o) => o.rounds !== best.rounds || best.compress).map((o) => btn(o, false)).join('')}</div>`, 'card-guided');
@@ -23,7 +26,7 @@ function guidedSummary(g, date, n, names) {
   const exs = g.info.def.exercises.map((id) => P.exerciseById(id)).filter(Boolean).map((e) => P.exerciseForWeek(e, n));
   const T = state.settings.timing;
   return `<ul class="t-plan">
-    <li><b>Warm-up</b> ${Math.round(T.warmup / 60)} min</li>
+    <li><b>Warm-up</b> ${Math.round((g.info.def.warmupSteps?.reduce((a, x) => a + x.s, 0) || T.warmup) / 60)} min, guided</li>
     <li><b>${g.rounds} rounds</b> of ${exs.length} exercises${g.compress ? ' (shorter rests)' : ''}</li>
     ${exs.map((ex, i) => {
       const name = names?.[i] || ex.name;

@@ -140,6 +140,16 @@ export function renderSettings() {
     </ol>
     <h3>Guided sessions</h3>
     <p class="muted">On gym days tap Start session. The timer runs the warm-up, each set, changeovers, round rests, the finisher and cool-down, with a photo of every exercise. Stop early or finish, then tap Log it - your rounds are filled in for you. Timings are in Goals and targets.</p>
+    <h3>Why these timings</h3>
+    <ul class="plain">
+      <li><b>45 sec sets</b>: 10 - 15 controlled reps, about 40 - 60 sec of work per set.</li>
+      <li><b>15 sec changeovers</b>: circuit studies show the best fat loss with 10 - 30 sec between exercises at moderate loads. Each muscle still gets about 8 min between its own sets.</li>
+      <li><b>Rest between rounds 90 &gt; 75 &gt; 60 sec</b>: the muscle benefit of longer rest levels off around 90 sec, so rest shortens as your fitness builds.</li>
+      <li><b>Effort 6 - 7 rising to 7 - 8</b>: getting closer to failure builds more muscle. Keep 1 - 3 good reps in the tank.</li>
+      <li><b>Finishers 30 sec &gt; 1 min &gt; 2 min</b>: longer intervals improve fitness more. Short ones are the gentle start.</li>
+      <li><b>5 min guided warm-up</b>: a little longer at 38, with calf work for the old strain.</li>
+      <li><b>Time of day</b>: morning or evening gives the same long-term results. Pick a regular time - you get best at the time you train.</li>
+    </ul>
     <h3>Interval timer</h3>
     <p class="muted">Keep the timer screen open. It keeps the screen awake and beeps at each change. iPhone pauses web apps when the screen locks, so beeps stop while locked, but the timer catches up when you unlock.</p>`, 'card-quiet');
 
@@ -200,9 +210,9 @@ const SECTIONS = {
     { key: 'settings.timing.work', label: 'Work per set', type: 'num', half: true },
     { key: 'settings.timing.sideWork', label: 'Work per side (single-side moves)', type: 'num', half: true },
     { key: 'settings.timing.transition', label: 'Changeover between exercises', type: 'num', half: true },
-    { key: 'settings.timing.roundRest', label: 'Rest between rounds', type: 'num', half: true },
+    { key: 'settings.timing.roundRest', label: 'Rest between rounds (if a week has none)', type: 'num', half: true },
     { key: 'settings.timing.switchSec', label: 'Switch sides', type: 'num', half: true },
-    { key: 'settings.timing.warmup', label: 'Warm-up', type: 'num', half: true },
+    { key: 'settings.timing.warmup', label: 'Warm-up (if no guided steps)', type: 'num', half: true },
     { key: 'settings.timing.cooldown', label: 'Cool-down', type: 'num', half: true },
   ] }] },
   equipment: { title: 'Equipment', blocks: [{ fields: [
@@ -238,6 +248,8 @@ const SECTIONS = {
     blocks: [{ list: 'program.weeks', fixed: true, itemTitle: (w) => `Week ${w.n} - ${w.phase}`, fields: [
       { key: 'phase', label: 'Phase', type: 'text', half: true },
       { key: 'rounds', label: 'Strength rounds', type: 'num', half: true },
+      { key: 'roundRest', label: 'Rest between rounds (sec)', type: 'num', half: true },
+      { key: 'effort', label: 'Effort target', type: 'text', half: true },
       { key: 'notes', label: 'Week notes', type: 'textarea' },
       ...runFields('tue', 'Tuesday run'),
       ...runFields('sun', 'Sunday run'),
