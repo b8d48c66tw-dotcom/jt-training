@@ -11,7 +11,7 @@ export function sessionCard(item, t) {
   let meta = info.minutes ? `${info.minutes} min` : '';
   if (act?.type === 'run' && act.distanceKm) meta = `${act.distanceKm} km in ${U.fmtDuration(act.durationSec)} - ${U.fmtPace(U.paceSec(act.distanceKm, act.durationSec))}`;
   const moved = item.movedFrom ? `<div class="note">Moved from ${U.dayName(item.movedFrom)} ${U.fmtDate(item.movedFrom)}</div>` : '';
-  const canMove = P.isCore(item.key) && status !== 'done';
+  const canMove = P.isCore(item.key) && status !== 'done' && !item.extra;
   const moveOpen = ui.moveOpen === item.id;
   let movePanel = '';
   if (moveOpen) {
@@ -42,12 +42,13 @@ export function sessionCard(item, t) {
   } else primary = `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>`;
   return `<div class="hero s-${info.type}">
     <a class="session-main" href="#/session/${item.id}">
-      <div class="hero-top"><span class="kicker teal">${item.date === U.today() ? "Today's session" : 'Session'}</span>${pill(status)}</div>
+      <div class="hero-top"><span class="kicker teal">${item.extra ? 'Trial session' : item.date === U.today() ? "Today's session" : 'Session'}</span>${pill(status)}</div>
       <div class="hero-title">${U.esc(info.title)}</div>
       <div class="hero-sub">${U.esc(info.subtitle)}</div>
       ${meta && status === 'done' ? `<div class="session-meta">${U.esc(meta)}</div>` : ''}
       ${chips.length && status !== 'done' ? `<div class="chips-row">${chips.map((c) => `<span>${c}</span>`).join('')}</div>` : ''}
       ${moved}
+      ${item.extra?.note ? `<div class="note">${U.esc(item.extra.note)}</div>` : ''}
     </a>
     ${primary}
     <div class="btn-row">
@@ -168,7 +169,7 @@ export function renderToday(dateParam) {
   const food = P.nutritionScore(t);
   let html = `<div class="day-nav">
     <a class="btn" href="#/day/${U.addDays(t, -1)}" aria-label="Previous day">&#8249;</a>
-    <div class="day-title"><div class="kicker">${n ? `Week ${n} - ${U.esc(P.week(n).phase)}` : 'Off program'}</div><div class="h1">${U.esc(U.fmtDateLong(t))}</div></div>
+    <div class="day-title"><div class="kicker">${n ? `Week ${n} - ${U.esc(P.week(n).phase)}` : t < s.startDate ? `Program starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}` : 'Program finished'}</div><div class="h1">${U.esc(U.fmtDateLong(t))}</div></div>
     <a class="btn" href="#/day/${U.addDays(t, 1)}" aria-label="Next day">&#8250;</a>
   </div>`;
   if (!isToday) html += `<a class="btn btn-block back-today" href="#/today">Back to today</a>`;
@@ -184,7 +185,7 @@ export function renderToday(dateParam) {
 
   let sessions = items.map((i) => sessionCard(i, U.today())).join('');
   if (away) sessions += `<div class="note">${U.esc(P.sessionInfo(away.key, away.week).title)} moved to ${U.dayName(away.to)} ${U.fmtDate(away.to)}</div>`;
-  if (!items.length && !away) sessions = card(n ? '<div class="kicker">Session</div><div class="hero-title">Rest day</div><p class="muted">Mobility and a walk if you feel like it.</p>' : `<p class="muted">Outside the 9-week program (${U.fmtDate(s.startDate)} - ${U.fmtDate(s.endDate)}).</p>`);
+  if (!items.length && !away) sessions = card(n ? '<div class="kicker">Session</div><div class="hero-title">Rest day</div><p class="muted">Mobility and a walk if you feel like it.</p>' : (t < s.startDate ? `<div class="kicker">Before the program</div><div class="hero-title">Week 1 starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}</div><p class="muted">Get your mobility in, practise the morning weigh-in and nutrition ticks, and get comfortable with the app.</p>` : `<p class="muted">The 9-week program finished on ${U.fmtDate(s.endDate)}.</p>`));
   if (n && P.week(n).notes && t === P.weekStart(n)) sessions += `<div class="note">${U.esc(P.week(n).notes)}</div>`;
   html += sessions;
 

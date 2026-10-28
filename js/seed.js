@@ -3,7 +3,7 @@
 // editable from Settings > Edit program. Changing this file later does not
 // overwrite what is already on the phone.
 
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 // ---- helpers for building interval segments -------------------------------
 // Segment: { l: label, s: seconds (0 = open-ended, tap Next when done), k: kind }
@@ -21,8 +21,8 @@ const runWalk = (x, run, walk, dropLast = false) => ({
 export const settings = {
   name: 'Josh',
   heightCm: 175,
-  startDate: '2026-10-28',
-  endDate: '2026-12-29',
+  startDate: '2026-11-02',
+  endDate: '2027-01-03',
   goalDate: '2026-12-24',
   startWeight: 88,
   goalWeight: 82,
@@ -162,12 +162,12 @@ const tueRuns = [
     segments: [seg('Easy run warm-up', 10, 'run'),
       { x: 4, dropLast: true, items: [seg('Tempo - comfortably hard', 5, 'tempo'), seg('Jog recovery', 2, 'jog')] },
       seg('Easy run cool-down', 5, 'run')] },
-  { title: '10 min easy, 2 x 10 min tempo with 3 min jog, 5 min easy', kind: 'tempo', minutes: 38,
-    segments: [seg('Easy run warm-up', 10, 'run'),
-      { x: 2, dropLast: true, items: [seg('Tempo - comfortably hard', 10, 'tempo'), seg('Jog recovery', 3, 'jog')] },
-      seg('Easy run cool-down', 5, 'run')] },
-  { title: '30 min easy', kind: 'easy', minutes: 34,
+  { title: '30 min easy - Christmas week', kind: 'easy', minutes: 34,
     segments: [warmWalk(2), seg('Easy run - under HR cap', 30, 'run'), coolWalk(2)] },
+  { title: '30 min easy plus 4 x 20 sec strides', kind: 'easy', minutes: 38,
+    segments: [warmWalk(2), seg('Easy run - under HR cap', 30, 'run'),
+      { x: 4, dropLast: false, items: [seg('Stride - fast and relaxed', 20 / 60, 'stride'), seg('Walk back', 40 / 60, 'walk')] },
+      coolWalk(2)] },
 ];
 
 const sunRuns = [
@@ -179,43 +179,49 @@ const sunRuns = [
     segments: [runWalk(4, 8, 1), seg('Run easy', 4, 'run')] },
   { title: '5 km continuous easy', kind: 'long', km: 5, minutes: 40,
     segments: [warmWalk(2), open('Easy run to 5 km - tap Next when done', 'run'), coolWalk(2)] },
-  { title: '6 km easy', kind: 'long', km: 6, minutes: 48,
-    segments: [warmWalk(2), open('Easy run to 6 km - tap Next when done', 'run'), coolWalk(2)] },
-  { title: '7 km easy', kind: 'long', km: 7, minutes: 55,
-    segments: [warmWalk(2), open('Easy run to 7 km - tap Next when done', 'run'), coolWalk(2)] },
+  { title: '6.5 km easy', kind: 'long', km: 6.5, minutes: 52,
+    segments: [warmWalk(2), open('Easy run to 6.5 km - tap Next when done', 'run'), coolWalk(2)] },
   { title: '8 km easy', kind: 'long', km: 8, minutes: 62,
     segments: [warmWalk(2), open('Easy run to 8 km - tap Next when done', 'run'), coolWalk(2)] },
   { title: '10 km easy - the one you owe your brother-in-law', kind: 'long', km: 10, minutes: 78,
     segments: [warmWalk(2), open('Easy run to 10 km - tap Next when done', 'run'), coolWalk(2)] },
   { title: '6 - 8 km easy, relaxed Christmas week run', kind: 'long', km: 7, minutes: 55,
     segments: [warmWalk(2), open('Easy run 6 - 8 km - tap Next when done', 'run'), coolWalk(2)] },
+  { title: '8 km easy - first run of the new year', kind: 'long', km: 8, minutes: 62,
+    segments: [warmWalk(2), open('Easy run to 8 km - tap Next when done', 'run'), coolWalk(2)] },
 ];
 
 // ---- weeks --------------------------------------------------------------------
-const phaseFor = (n) => (n <= 3 ? 'Rebuild' : n <= 6 ? 'Build' : n <= 8 ? 'Push' : 'Christmas');
+const phaseFor = (n) => (n <= 3 ? 'Rebuild' : n <= 6 ? 'Build' : n === 7 ? 'Push' : n === 8 ? 'Christmas' : 'New Year');
 const weekNotes = {
   1: 'Week 1. Easy does it. Walking to stay under the HR cap is fine. Expect a bigger drop on the scales from water.',
   4: 'Phase 2 starts. 4 rounds if time allows, single-leg glute bridge, longer finishers.',
-  7: 'Phase 3. Tempo work gets longer. Sleep and protein matter most now.',
-  8: 'Week 8. Sunday is the 10 km you owe your brother-in-law.',
-  9: 'Christmas week. Reduced volume. Goal weigh-in Thursday 24 December.',
+  7: 'Push week. Longer tempo work, and Sunday is the 10 km you owe your brother-in-law.',
+  8: 'Christmas week. Reduced volume. Goal weigh-in Thursday 24 December.',
+  9: 'New Year week. Relaxed volume - keep the habits going into 2027.',
 };
 export const weeks = Array.from({ length: 9 }, (_, i) => {
   const n = i + 1;
-  const start = new Date(2026, 9, 28 + i * 7);
+  const start = new Date(2026, 10, 2 + i * 7);
   const iso = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   const phase = phaseFor(n);
-  const rounds = n <= 3 ? 3 : n <= 8 ? 4 : 2;
-  const finA = n <= 3 ? bikeFinisher(8) : n <= 6 ? bikeFinisher(10) : n <= 8 ? bikeFinisher(12) : bikeFinisher(8);
-  const finB = n <= 3 ? rowMinutes(5) : n <= 6 ? row250(6) : n <= 8 ? row250(8) : rowMinutes(5);
+  const rounds = n <= 3 ? 3 : n <= 7 ? 4 : n === 8 ? 2 : 3;
+  const finA = n <= 3 ? bikeFinisher(8) : n <= 6 ? bikeFinisher(10) : n === 7 ? bikeFinisher(12) : n === 8 ? bikeFinisher(8) : bikeFinisher(10);
+  const finB = n <= 3 ? rowMinutes(5) : n <= 6 ? row250(6) : n === 7 ? row250(8) : n === 8 ? rowMinutes(5) : row250(6);
   return { n, start: iso, phase, rounds, notes: weekNotes[n] || '', tue: tueRuns[i], sun: sunRuns[i], finA, finB };
 });
 
 export const phases = [
-  { name: 'Rebuild', weeks: '1 - 3', dates: '28 Oct - 17 Nov' },
-  { name: 'Build', weeks: '4 - 6', dates: '18 Nov - 8 Dec' },
-  { name: 'Push', weeks: '7 - 8', dates: '9 Dec - 22 Dec' },
-  { name: 'Christmas', weeks: '9', dates: '23 Dec - 29 Dec' },
+  { name: 'Rebuild', weeks: '1 - 3', dates: '2 Nov - 22 Nov' },
+  { name: 'Build', weeks: '4 - 6', dates: '23 Nov - 13 Dec' },
+  { name: 'Push', weeks: '7', dates: '14 Dec - 20 Dec' },
+  { name: 'Christmas', weeks: '8', dates: '21 Dec - 27 Dec' },
+  { name: 'New Year', weeks: '9', dates: '28 Dec - 3 Jan' },
+];
+
+// One-off sessions outside the weekly template (e.g. a trial before week 1).
+export const extraSessions = [
+  { date: '2026-10-30', key: 'strengthB', week: 1, rounds: 2, note: 'Trial run before the program starts. Go light, learn the timer and the movements, and keep the legs fresh for Saturday.' },
 ];
 
 // Day of week (0 = Sunday) to session key.
@@ -436,7 +442,7 @@ export function buildInitialState() {
     schema: 1,
     seedVersion: SEED_VERSION,
     settings: structuredClone(settings),
-    program: structuredClone({ equipment, exercises, strength, weeks, phases, template, floating, tueMobility, mobility, exerciseImages }),
+    program: structuredClone({ equipment, exercises, strength, weeks, phases, template, floating, tueMobility, mobility, exerciseImages, extraSessions }),
     nutrition: structuredClone(nutrition),
     activities: structuredClone(historyActivities),
     days: {},     // 'YYYY-MM-DD' -> { weight, mobility, n: { shake, protein, water, veg, steps }, kcal, proteinG }

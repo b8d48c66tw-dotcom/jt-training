@@ -294,7 +294,7 @@ export function renderSession(planId) {
   const status = P.statusOf(item);
   const type = info.type === 'floating' ? 'floating' : info.type;
   const ctx = { item, info, act, n: item.week, date: item.date, key: item.key, type };
-  let heading = `<div class="sess-hero s-${info.type}"><div class="muted">${U.dayName(item.date)} ${U.fmtDate(item.date)} - Week ${item.week}${item.movedFrom ? ` - moved from ${U.dayShort(item.movedFrom)}` : ''}</div>
+  let heading = `<div class="sess-hero s-${info.type}"><div class="muted">${U.dayName(item.date)} ${U.fmtDate(item.date)} - ${item.extra ? 'Trial session' : `Week ${item.week}`}${item.movedFrom ? ` - moved from ${U.dayShort(item.movedFrom)}` : ''}</div>
     <div class="h1">${U.esc(info.title)}</div><div>${U.esc(info.subtitle)}</div><div class="hero-pill">${pill(status)}</div></div>`;
   if (type === 'floating') {
     const missed = P.missedThisWeek().filter((m) => P.freeDays(m).includes(item.date));

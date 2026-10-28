@@ -61,16 +61,18 @@ function migrate(s) {
   for (const k of Object.keys(fresh)) if (s[k] === undefined) s[k] = fresh[k];
   for (const k of Object.keys(fresh.settings)) if (s.settings[k] === undefined) s.settings[k] = fresh.settings[k];
   for (const k of Object.keys(fresh.program)) if (s.program[k] === undefined) s.program[k] = fresh.program[k];
-  // v2: the program now starts Wednesday 28 October 2026 (was Monday 26 October).
-  if ((s.seedVersion || 1) < 2 && s.settings.startDate === '2026-10-26') {
+  // v3: the program now starts Monday 2 November 2026, with a trial session on Friday 30 October.
+  if ((s.seedVersion || 1) < 3 && ['2026-10-26', '2026-10-28'].includes(s.settings.startDate)) {
     s.settings.startDate = fresh.settings.startDate;
     s.settings.endDate = fresh.settings.endDate;
-    s.program.weeks.forEach((w, i) => { if (fresh.program.weeks[i]) w.start = fresh.program.weeks[i].start; });
+    s.program.weeks = fresh.program.weeks;
     s.program.phases = fresh.program.phases;
-    const before = (id) => id.slice(0, 10) < fresh.settings.startDate;
-    for (const id of Object.keys(s.moves || {})) if (before(id)) delete s.moves[id];
-    for (const id of Object.keys(s.skips || {})) if (before(id)) delete s.skips[id];
-    for (const a of s.activities) if (a.planId && before(a.planId)) a.planId = null;
+    s.program.extraSessions = fresh.program.extraSessions;
+    s.moves = {};
+    s.skips = {};
+    // Anything already logged stays in the log; it just no longer ticks off an old planned day.
+    const keep = new Set(fresh.program.extraSessions.map((x) => `${x.date}:${x.key}`));
+    for (const a of s.activities) if (a.planId && a.planId.slice(0, 10) < fresh.settings.startDate && !keep.has(a.planId)) a.planId = null;
   }
   s.seedVersion = Math.max(s.seedVersion || 1, fresh.seedVersion);
   return s;

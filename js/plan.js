@@ -45,6 +45,10 @@ export function itemsOn(iso) {
   const out = [];
   const b = baseItem(iso);
   if (b && !state.moves[b.id]) out.push(b);
+  // One-off extra sessions (e.g. a trial before week 1).
+  for (const x of state.program.extraSessions || []) {
+    if (x.date === iso) out.push({ id: `${iso}:${x.key}`, key: x.key, origDate: iso, date: iso, week: x.week || weekNum(iso) || 1, extra: x });
+  }
   for (const [id, to] of Object.entries(state.moves)) {
     if (to !== iso) continue;
     const [orig, key] = id.split(':');
@@ -60,8 +64,12 @@ export function movedAway(iso) {
   return b && state.moves[b.id] ? { ...b, to: state.moves[b.id] } : null;
 }
 
+export const extraFor = (date, key) => (state.program.extraSessions || []).find((x) => x.date === date && x.key === key) || null;
+
 export function findItem(planId) {
   const [orig, key] = planId.split(':');
+  const x = extraFor(orig, key);
+  if (x) return { id: planId, key, origDate: orig, date: orig, week: x.week || weekNum(orig) || 1, extra: x };
   const to = state.moves[planId];
   return { id: planId, key, origDate: orig, date: to || orig, week: weekNum(orig), movedFrom: to ? orig : undefined };
 }
@@ -390,7 +398,7 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
 export function guidedOptions(key, n, date) {
   const info = sessionInfo(key, n);
   const budget = (state.settings.timing.sessionMinutes + 3) * 60;
-  const planned = info.rounds;
+  const planned = extraFor(date, key)?.rounds ?? info.rounds;
   const opts = [];
   for (let r = 2; r <= Math.max(4, planned); r++) {
     const normal = guidedStrength(key, n, r, date);
