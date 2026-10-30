@@ -2,7 +2,9 @@
 import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, pill, scale, field, formData, commit, toast, go, openTimer, flip } from '../core.js';
+import { on, ui, card, scale, field, formData, commit, toast, go, openTimer, flip } from '../core.js';
+import { heroBg } from '../visual.js';
+import { primaryAction, movePanel } from './today.js';
 
 const RUN_KINDS = { easy: 'Easy', runwalk: 'Run/walk', long: 'Long easy', tempo: 'Tempo or intervals', race: 'Race' };
 
@@ -45,7 +47,7 @@ on('guided', (el) => {
   const form = el.closest('main')?.querySelector('form.log-form');
   const names = form ? [...form.querySelectorAll('select[name$=".name"]')].map((s) => s.value) : null;
   const g = P.guidedStrength(d.key, n, Number(d.r), d.date, !!d.c, names);
-  openTimer({ title: `${g.info.title} - ${g.rounds} rounds`, segments: g.segs, planId: d.id || null, onDoneHash: d.hash || location.hash, summary: guidedSummary(g, d.date, n, names), meta: { names } });
+  openTimer({ title: `${g.info.title} - ${g.rounds} rounds`, segments: g.segs, planId: d.id || null, onDoneHash: d.hash || location.hash, summary: guidedSummary(g, d.date, n, names), meta: { names, guided: true, key: d.key, n, date: d.date } });
 });
 on('ex-swap', (el) => {
   const slot = el.closest('.card-ex')?.querySelector('.flip-slot');
@@ -60,7 +62,7 @@ function strengthForm(ctx) {
   const tr = !act && ui.timerResult && ui.timerResult.planId === (ctx.item?.id ?? null) && ui.timerResult.rounds != null ? ui.timerResult : null;
   let html = '';
   if (tr) html += `<div class="note note-good">Filled in from your guided session: ${tr.rounds} round${tr.rounds === 1 ? '' : 's'} at the top of the rep range. Change any you missed, add the weights you used and your effort, then save.</div>`;
-  else if (!act) html += guidedCard(ctx.key, n, date, ctx.item?.id, location.hash);
+  else if (!act && !ctx.preview) html += guidedCard(ctx.key, n, date, ctx.item?.id, location.hash);
   html += `<div class="note">${U.esc(def.format)}</div>
     ${card(`<h3>Warm-up</h3><p>${U.esc(def.warmup)}</p>`, 'card-quiet')}`;
   html += exs.map((base, i) => {
@@ -72,12 +74,13 @@ function strengthForm(ctx) {
     const hist = P.exerciseHistory(chosen).filter((h) => h.date < date);
     const last = hist[hist.length - 1];
     const ready = P.readyToGoUp(ex, chosen, date);
-    const weight = logged?.weight ?? (ready && last?.weight ? P.nextWeight(last.weight) ?? last.weight : last?.weight ?? '');
+    const trKg = tr?.sets ? Object.entries(tr.sets).filter(([k]) => k.startsWith(`${i}:`)).map(([, v]) => v.kg).filter((x) => x != null).pop() : null;
+    const weight = logged?.weight ?? trKg ?? (ready && last?.weight ? P.nextWeight(last.weight) ?? last.weight : last?.weight ?? '');
     const unitLbl = { reps: 'reps', each: 'each side', sec: 'sec', secEach: 'sec each', m: 'm' }[ex.unit];
     const rounds = Math.max(info.rounds, 4);
     let reps = '';
     for (let r = 0; r < rounds; r++) {
-      const v = logged?.reps?.[r] ?? (tr && r < tr.rounds ? ex.max : '');
+      const v = logged?.reps?.[r] ?? (tr?.sets?.[`${i}:${r + 1}`]?.reps ?? (tr && r < tr.rounds ? ex.max : ''));
       reps += `<input class="rep ${r >= info.rounds ? 'opt' : ''}" name="ex.${i}.r${r}" type="number" inputmode="numeric" value="${v}" placeholder="${r < info.rounds ? ex.max : '-'}" aria-label="Round ${r + 1} ${unitLbl}">`;
     }
     return card(`<div class="ex-head"><span class="ex-num">${i + 1}</span><div><div class="ex-name">${U.esc(ex.name)}</div><div class="muted">${U.esc(P.fmtTarget(ex))}</div></div></div>
@@ -289,6 +292,43 @@ on('del-log', (el) => {
   go('#/log');
 });
 
+// ---- session preview ------------------------------------------------------------------------------
+const row = (img, title, sub) => `<div class="li">${img ? `<img src="img/ex/${img}-1.jpg" alt="">` : '<div class="li-th"></div>'}<div class="li-m"><b>${title}</b>${sub ? `<div class="sb">${sub}</div>` : ''}</div></div>`;
+const secHead = (name, small) => `<div class="sec-h"><span>${U.esc(name)}</span>${small ? `<small>${U.esc(small)}</small>` : ''}</div>`;
+const mmss = (sec) => (sec ? U.fmtDuration(sec) : '');
+
+function previewSections(item, info) {
+  if (info.type === 'strength') {
+    const n = item.week;
+    const w = P.week(n) || {};
+    const best = P.guidedOptions(item.key, n, item.date).best;
+    const warm = info.def.warmupSteps || [];
+    const warmSec = warm.reduce((a, x) => a + x.s, 0);
+    let h = secHead('Warm-up', `${Math.round(warmSec / 60)} min`) + warm.map((x) => row(P.imgFor(x.l), U.esc(x.l), mmss(x.s))).join('');
+    const exs = info.def.exercises.map((id) => P.exerciseById(id)).filter(Boolean).map((e) => P.exerciseForWeek(e, n));
+    h += secHead('Circuit', `${best.rounds} rounds - rest ${w.roundRest ?? state.settings.timing.roundRest} sec`);
+    h += exs.map((ex) => {
+      const kg = ex.load ? P.suggestedWeight(ex, ex.name, item.date) : null;
+      return row(P.imgFor(ex.name), `<span class="x">${best.rounds}x</span> ${U.esc(ex.name)}`, `${U.esc(P.fmtTarget(ex))}${kg ? ` - ${kg} kg` : ''}`);
+    }).join('');
+    h += secHead('Finisher', '') + row(null, U.esc(info.finisher.label), '');
+    h += secHead('Cool-down', `${Math.round(state.settings.timing.cooldown / 60)} min`) + row(P.imgFor('Kneeling hip flexor stretch'), 'Easy stretch', 'Hip flexors, hamstrings, chest');
+    if (w.effort) h += `<div class="note">${U.esc(w.effort)}.</div>`;
+    return h;
+  }
+  if (info.type === 'run') {
+    const r = info.run;
+    const parts = r.segments.map((sg) => {
+      if (sg.x) return row(null, `<span class="x">${sg.x}x</span> ${sg.items.map((it) => `${U.esc(it.l)} ${mmss(it.s)}`).join(' / ')}`, sg.dropLast ? 'Last recovery skipped' : '');
+      return row(null, U.esc(sg.l.replace(/ - tap Next when done/i, '')), sg.s ? mmss(sg.s) : 'Tap Next when you get there');
+    }).join('');
+    const s2 = state.settings;
+    return secHead('The run', `${r.minutes} min`) + parts
+      + `<div class="note">Easy = heart rate under ${s2.hrCapLow} - ${s2.hrCapHigh} (about ${s2.easyPace}). Walking to stay under it is fine.${r.kind === 'tempo' ? ` Tempo = comfortably hard, about ${s2.tempoPace}.` : ''}</div>`;
+  }
+  return '';
+}
+
 export function renderSession(planId) {
   const item = P.findItem(planId);
   if (!item.week) return { title: 'Session', html: '<p>Session not found.</p>' };
@@ -296,15 +336,46 @@ export function renderSession(planId) {
   const act = P.activityFor(planId);
   const status = P.statusOf(item);
   const type = info.type === 'floating' ? 'floating' : info.type;
-  const ctx = { item, info, act, n: item.week, date: item.date, key: item.key, type };
-  let heading = `<div class="sess-hero s-${info.type}"><div class="muted">${U.dayName(item.date)} ${U.fmtDate(item.date)} - ${item.extra ? 'Trial session' : `Week ${item.week}`}${item.movedFrom ? ` - moved from ${U.dayShort(item.movedFrom)}` : ''}</div>
-    <div class="h1">${U.esc(info.title)}</div><div>${U.esc(info.subtitle)}</div><div class="hero-pill">${pill(status)}</div></div>`;
+  const ctx = { item, info, act, n: item.week, date: item.date, key: item.key, type, preview: true };
+  const w = P.week(item.week) || {};
+  const canMove = P.isCore(item.key) && status !== 'done' && !item.extra;
+  const chips = [
+    item.extra ? '<span class="tag tag-t">Trial</span>' : `<span class="tag tag-t">Week ${item.week}</span>`,
+    status === 'done' ? '<span class="tag tag-good">&#10003; Complete</span>' : status === 'missed' ? '<span class="tag tag-bad">Missed</span>' : '',
+    info.type === 'strength' ? `<span class="tag">Rest ${w.roundRest ?? state.settings.timing.roundRest} sec</span>` : '',
+    item.movedFrom ? `<span class="tag">From ${U.dayShort(item.movedFrom)}</span>` : '',
+  ].join('');
+  const mins = info.type === 'strength' ? P.guidedOptions(item.key, item.week, item.date).best.min : info.minutes;
+  const gear = info.type === 'strength' ? (item.key === 'strengthA' ? 'Dumbbells - Bench - BikeErg' : 'Dumbbells - Bench - Bands - RowErg') : info.subtitle;
+  let heading = `<div class="sp-hero s-${info.type}">${heroBg(item)}<div class="hb-shade"></div>
+    <div class="sp-in"><div class="tags">${chips}</div>
+      <div class="kick">${U.dayName(item.date)} ${U.fmtDate(item.date)}${mins ? ` - ${mins} min` : ''}</div>
+      <div class="disp sp-title">${U.esc(info.title)}</div><div class="sp-sub">${U.esc(gear)}</div></div></div>`;
+  heading += `<div class="acts">
+    ${canMove ? `<button data-act="move-open" data-id="${item.id}"><i>&#8644;</i>Move</button>` : ''}
+    <button data-act="jump" data-to="log-form"><i>&#9998;</i>${act ? 'Edit log' : 'Log only'}</button>
+    ${info.type === 'strength' ? '<a href="#/journal"><i>&#9776;</i>History</a>' : '<a href="#/progress"><i>&#8599;</i>Progress</a>'}
+    ${canMove && status !== 'skipped' ? `<button data-act="skip" data-id="${item.id}"><i>&#8856;</i>Skip</button>` : ''}
+  </div>`;
+  heading += movePanel(item);
+  if (item.extra?.note) heading += `<div class="note">${U.esc(item.extra.note)}</div>`;
+  heading += previewSections(item, info);
+  if (status !== 'done' && (info.type === 'strength' || info.type === 'run')) {
+    let others = '';
+    if (info.type === 'strength') {
+      const { opts, best } = P.guidedOptions(item.key, item.week, item.date);
+      others = opts.filter((o) => o.rounds !== best.rounds || best.compress).map((o) => `<button class="tag tag-btn" data-act="guided" data-key="${item.key}" data-n="${item.week}" data-date="${item.date}" data-r="${o.rounds}" data-c="" data-id="${item.id}" data-hash="#/session/${item.id}">${o.rounds} rounds - ${o.min} min</button>`).join('');
+    }
+    if (others) heading += `<div class="cta-others"><span class="muted small">Other lengths:</span>${others}</div>`;
+    heading += `<div class="cta-dock">${primaryAction(item, status, 'cta cta-block')}</div>`;
+  }
   if (type === 'floating') {
     const missed = P.missedThisWeek().filter((m) => P.freeDays(m).includes(item.date));
     if (missed.length) {
       heading += card(`<h3>Make-up option</h3>${missed.map((m) => `<button class="btn btn-primary btn-block" data-act="move" data-id="${m.id}" data-to="${item.date}">Do ${U.esc(P.sessionInfo(m.key, m.week).title)} here instead</button>`).join('')}<p class="muted">Day before a game - keep it light (drop a round if you need to).</p>`);
     }
   }
+  heading += `<h2 class="sec-h log-h" id="log-form"><span>${act ? 'Your log' : info.type === 'cricket' || info.type === 'floating' ? 'Log it' : 'Log it yourself'}</span></h2>`;
   return { title: info.title, html: renderForm(ctx, heading) };
 }
 

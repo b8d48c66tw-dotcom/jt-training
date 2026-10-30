@@ -7,7 +7,7 @@ import { renderToday } from './screens/today.js';
 import { renderWeek } from './screens/week.js';
 import { renderSession, renderNewLog, renderActivity } from './screens/session.js';
 import { renderLog } from './screens/log.js';
-import { renderProgress, renderCheckin } from './screens/progress.js';
+import { renderProgress, renderCheckin, renderJournal } from './screens/progress.js';
 import { renderFood } from './screens/food.js';
 import { renderSettings, renderEditor } from './screens/settings.js';
 
@@ -24,8 +24,9 @@ const routes = {
   settings: () => renderSettings(),
   checkin: (n) => renderCheckin(n),
   edit: (k) => renderEditor(k),
+  journal: (n) => renderJournal(n),
 };
-const TAB_FOR = { today: 'today', day: 'today', session: 'today', week: 'week', log: 'log', new: 'log', activity: 'log', progress: 'progress', checkin: 'progress', food: 'food' };
+const TAB_FOR = { today: 'today', day: 'today', session: 'today', week: 'week', log: 'log', new: 'log', activity: 'log', progress: 'progress', checkin: 'progress', journal: 'progress', food: 'food' };
 
 function render() {
   const [name, arg] = (location.hash.replace(/^#\/?/, '') || 'today').split('/');

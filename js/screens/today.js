@@ -2,64 +2,69 @@
 import { state, day, peekDay } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, pill, commit, toast, openTimer, rerender, rings, flip } from '../core.js';
+import { on, ui, card, commit, toast, openTimer, rerender, flip } from '../core.js';
+import { heroBg, weekStrip } from '../visual.js';
+
+// Primary button for a session: guided start, run timer, log cricket or view the log.
+export function primaryAction(item, status, cls = 'cta') {
+  const info = P.sessionInfo(item.key, item.week);
+  if (status === 'done') return `<a class="${cls} cta-ghost" href="#/session/${item.id}">View log</a>`;
+  if (info.type === 'run') return `<button class="${cls}" data-act="quick-timer" data-id="${item.id}">Start run</button>`;
+  if (info.type === 'strength') {
+    const o = P.guidedOptions(item.key, item.week, item.date).best;
+    return `<button class="${cls}" data-act="guided" data-key="${item.key}" data-n="${item.week}" data-date="${item.date}" data-r="${o.rounds}" data-c="${o.compress ? 1 : ''}" data-id="${item.id}" data-hash="#/session/${item.id}">Start session</button>`;
+  }
+  return `<a class="${cls}" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open'}</a>`;
+}
+
+export function sessionChips(item) {
+  const info = P.sessionInfo(item.key, item.week);
+  const s = state.settings;
+  const out = [];
+  if (info.type === 'strength') {
+    const o = P.guidedOptions(item.key, item.week, item.date).best;
+    out.push(`${o.min} min`, `${o.rounds} rounds`);
+  } else if (info.minutes) out.push(`${info.minutes} min`);
+  if (info.type === 'run') out.push(`HR &lt; ${s.hrCapHigh}`);
+  return out;
+}
+
+export function movePanel(item) {
+  if (ui.moveOpen !== item.id) return '';
+  const free = P.freeDays(item);
+  return `<div class="card move-panel">
+    ${free.length ? `<div class="lbl">Move to</div><div class="btn-row">${free.map((d) => `<button class="btn" data-act="move" data-id="${item.id}" data-to="${d}">${U.dayShort(d)} ${U.fmtDate(d)}</button>`).join('')}</div>` : '<div class="note">No free training days left this week.</div>'}
+    <div class="btn-row">${item.movedFrom ? `<button class="btn btn-ghost" data-act="move" data-id="${item.id}" data-to="${item.origDate}">Back to ${U.dayShort(item.origDate)}</button>` : ''}<button class="btn btn-ghost" data-act="skip" data-id="${item.id}">Skip this week</button><button class="btn btn-ghost" data-act="move-open" data-id="${item.id}">Cancel</button></div>
+  </div>`;
+}
 
 export function sessionCard(item, t) {
   const info = P.sessionInfo(item.key, item.week);
   const status = P.statusOf(item, t);
   const act = P.activityFor(item.id);
-  let meta = info.minutes ? `${info.minutes} min` : '';
-  if (act?.type === 'run' && act.distanceKm) meta = `${act.distanceKm} km in ${U.fmtDuration(act.durationSec)} - ${U.fmtPace(U.paceSec(act.distanceKm, act.durationSec))}`;
-  const moved = item.movedFrom ? `<div class="note">Moved from ${U.dayName(item.movedFrom)} ${U.fmtDate(item.movedFrom)}</div>` : '';
   const canMove = P.isCore(item.key) && status !== 'done' && !item.extra;
-  const moveOpen = ui.moveOpen === item.id;
-  let movePanel = '';
-  if (moveOpen) {
-    const free = P.freeDays(item);
-    movePanel = `<div class="move-panel">
-      ${free.length ? `<div class="lbl">Move to</div><div class="btn-row">${free.map((d) => `<button class="btn" data-act="move" data-id="${item.id}" data-to="${d}">${U.dayShort(d)} ${U.fmtDate(d)}</button>`).join('')}</div>` : '<div class="note">No free training days left this week.</div>'}
-      <div class="btn-row">${item.movedFrom ? `<button class="btn btn-ghost" data-act="move" data-id="${item.id}" data-to="${item.origDate}">Back to ${U.dayShort(item.origDate)}</button>` : ''}<button class="btn btn-ghost" data-act="skip" data-id="${item.id}">Skip this week</button></div>
-    </div>`;
-  }
-  const s = state.settings;
-  const chips = [];
-  if (info.minutes) chips.push(`${info.minutes} min`);
-  if (info.type === 'run') chips.push(`HR &lt; ${s.hrCapHigh}`, { runwalk: 'Run/walk', easy: 'Easy', long: 'Long easy', tempo: 'Tempo' }[info.run.kind] || 'Easy');
-  if (info.type === 'strength') {
-    const o = P.guidedOptions(item.key, item.week, item.date).best;
-    chips.length = 0;
-    chips.push(`${o.min} min`, `${o.rounds} rounds`, `${state.settings.timing.work} sec sets`, 'Effort 6 - 7');
-  }
-  const runReady = info.type === 'run' && status !== 'done';
-  const strReady = info.type === 'strength' && status !== 'done';
-  let primary;
-  if (status === 'done') primary = `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">View log</a>`;
-  else if (runReady) primary = `<button class="btn btn-primary btn-lg" data-act="quick-timer" data-id="${item.id}">Start timer</button>`;
-  else if (strReady) {
-    // Guided, timed session fitted to the time budget.
-    const o = P.guidedOptions(item.key, item.week, item.date).best;
-    primary = `<button class="btn btn-primary btn-lg" data-act="guided" data-key="${item.key}" data-n="${item.week}" data-date="${item.date}" data-r="${o.rounds}" data-c="${o.compress ? 1 : ''}" data-id="${item.id}" data-hash="#/session/${item.id}">Start session - ${o.min} min</button>`;
-  } else primary = `<a class="btn btn-primary btn-lg" href="#/session/${item.id}">${info.type === 'cricket' ? 'Log cricket' : 'Open session'}</a>`;
-  return `<div class="hero s-${info.type}">
-    <a class="session-main" href="#/session/${item.id}">
-      <div class="hero-top"><span class="kicker teal">${item.extra ? 'Trial session' : item.date === U.today() ? "Today's session" : 'Session'}</span>${pill(status)}</div>
-      <div class="hero-title">${U.esc(info.title)}</div>
-      <div class="hero-sub">${U.esc(info.subtitle)}</div>
-      ${meta && status === 'done' ? `<div class="session-meta">${U.esc(meta)}</div>` : ''}
-      ${chips.length && status !== 'done' ? `<div class="chips-row">${chips.map((c) => `<span>${c}</span>`).join('')}</div>` : ''}
-      ${moved}
-      ${item.extra?.note ? `<div class="note">${U.esc(item.extra.note)}</div>` : ''}
-    </a>
-    ${primary}
-    <div class="btn-row">
-      ${runReady || strReady ? `<a class="btn" href="#/session/${item.id}">Details and log</a>` : ''}
-      ${canMove ? `<button class="btn" data-act="move-open" data-id="${item.id}">${moveOpen ? 'Cancel' : 'Move'}</button>` : ''}
-      ${status === 'skipped' ? `<button class="btn" data-act="unskip" data-id="${item.id}">Undo skip</button>` : ''}
+  let sub = info.subtitle;
+  if (act?.type === 'run' && act.distanceKm) sub = `${act.distanceKm} km in ${U.fmtDuration(act.durationSec)} - ${U.fmtPace(U.paceSec(act.distanceKm, act.durationSec))}`;
+  const statusChip = status === 'done' ? '<span class="tag tag-good">&#10003; Complete</span>'
+    : status === 'missed' ? '<span class="tag tag-bad">Missed</span>'
+      : status === 'skipped' ? '<span class="tag tag-warn">Skipped</span>'
+        : item.extra ? '<span class="tag tag-t">Trial</span>'
+          : item.date === U.today() ? '<span class="tag tag-t">Today</span>' : '';
+  return `<div class="hero2 s-${info.type}">
+    ${heroBg(item)}<div class="hb-shade"></div>
+    <div class="hero2-in">
+      <div class="tags">${statusChip}${status !== 'done' ? sessionChips(item).map((c) => `<span class="tag">${c}</span>`).join('') : ''}${item.movedFrom ? `<span class="tag">From ${U.dayShort(item.movedFrom)}</span>` : ''}</div>
+      <a class="disp hero2-title" href="#/session/${item.id}">${U.esc(info.title)}</a>
+      <div class="hero2-sub">${U.esc(sub)}</div>
+      ${item.extra?.note ? `<div class="hero2-note">${U.esc(item.extra.note)}</div>` : ''}
+      ${primaryAction(item, status)}
+      <div class="hero2-links"><a href="#/session/${item.id}">Details</a>${canMove ? `<button data-act="move-open" data-id="${item.id}">Move</button>` : ''}${status === 'skipped' ? `<button data-act="unskip" data-id="${item.id}">Undo skip</button>` : ''}</div>
     </div>
-    ${movePanel}
-  </div>`;
+  </div>${movePanel(item)}`;
 }
 
+const restIcon = () => '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M30 8a16 16 0 1 0 10 26A14 14 0 0 1 30 8z"/></svg>';
+on('jump', (el) => document.getElementById(el.dataset.to)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
 on('quick-timer', (el) => {
   const item = P.findItem(el.dataset.id);
   const info = P.sessionInfo(item.key, item.week);
@@ -109,7 +114,7 @@ function weighCard(t) {
   const list = P.weights();
   const a7 = P.avg7(t, list);
   const target = P.targetAt(t);
-  return card(`<h2>Morning weigh-in</h2>
+  return card(`<h2 id="c-weigh">Morning weigh-in</h2>
     <form class="weigh" data-submit="weigh" data-date="${t}">
       <input class="big-input" name="weight" type="number" inputmode="decimal" step="0.1" min="40" max="200" placeholder="${w ?? (list.length ? list[list.length - 1].w : state.settings.startWeight)}" value="${w ?? ''}" aria-label="Weight in kg">
       <span class="unit">kg</span>
@@ -129,7 +134,7 @@ function mobilityCard(t) {
   const d = peekDay(t);
   const done = !!d?.mobility;
   const r = P.mobilityRoutine(t);
-  return card(`<div class="card-head"><h2>Mobility - ${r.minutes} min${r.long ? ' (long flow)' : ''}</h2></div>
+  return card(`<div class="card-head" id="c-mob"><h2>Mobility - ${r.minutes} min${r.long ? ' (long flow)' : ''}</h2></div>
     <button class="tick ${done ? 'on' : ''}" data-act="toggle-mob" data-date="${t}"><span class="box">${done ? '&#10003;' : ''}</span>${done ? 'Mobility done' : 'Tick when done'}</button>
     <ul class="drills">${r.drills.map((m) => `<li class="drill">${flip(P.imgFor(m.name), 'flip-sm') || '<div class="flip-sm flip-none"></div>'}<div><b>${U.esc(m.name)}</b> <span class="muted">${m.sides === 2 ? `${m.hold} sec each side` : `${m.hold} sec`}</span><div class="cue">${U.esc(m.cue)}</div></div></li>`).join('')}</ul>
     <button class="btn btn-lg btn-block" data-act="mob-timer" data-date="${t}">Start guided routine</button>`);
@@ -137,14 +142,14 @@ function mobilityCard(t) {
 on('toggle-mob', (el) => { const d = day(el.dataset.date); d.mobility = !d.mobility; commit(); });
 on('mob-timer', (el) => {
   const r = P.mobilityRoutine(el.dataset.date);
-  openTimer({ title: `Mobility - ${r.minutes} min`, segments: P.mobilitySegments(r.drills) });
+  openTimer({ title: `Mobility - ${r.minutes} min`, segments: P.mobilitySegments(r.drills), meta: { mobilityDate: el.dataset.date } });
 });
 
 export function nutritionCard(t) {
   const d = peekDay(t) || { n: {} };
   const score = P.nutritionScore(t);
   const tg = state.settings.targets;
-  return card(`<div class="card-head"><h2>Nutrition</h2><span class="score">${score}/${P.NUTRITION_ITEMS.length}</span></div>
+  return card(`<div class="card-head" id="c-food"><h2>Nutrition</h2><span class="score">${score}/${P.NUTRITION_ITEMS.length}</span></div>
     <div class="ticks">${P.NUTRITION_ITEMS.map((i) => `<button class="tick ${d.n?.[i.key] ? 'on' : ''}" data-act="toggle-n" data-date="${t}" data-key="${i.key}"><span class="box">${d.n?.[i.key] ? '&#10003;' : ''}</span>${U.esc(i.label)}</button>`).join('')}</div>
     <details class="more" ${d.kcal || d.proteinG ? 'open' : ''}><summary>Add calories and protein (optional)</summary>
       <div class="row2">
@@ -167,34 +172,36 @@ export function renderToday(dateParam) {
   const d = peekDay(t);
   const sum = n ? P.weekSummary(n) : null;
   const food = P.nutritionScore(t);
-  let html = `<div class="day-nav">
-    <a class="btn" href="#/day/${U.addDays(t, -1)}" aria-label="Previous day">&#8249;</a>
-    <div class="day-title"><div class="kicker">${n ? `Week ${n} - ${U.esc(P.week(n).phase)}` : t < s.startDate ? `Program starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}` : 'Program finished'}</div><div class="h1">${U.esc(U.fmtDateLong(t))}</div></div>
-    <a class="btn" href="#/day/${U.addDays(t, 1)}" aria-label="Next day">&#8250;</a>
+  const phase = n ? `Week ${n} - ${P.week(n).phase}` : t < s.startDate ? `Starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}` : 'Program finished';
+  let html = `<div class="today-head">
+    <div><div class="kick">${U.esc(phase)}</div><div class="today-date">${U.esc(U.fmtDateLong(t))}</div></div>
+    <div class="goal-pill"><b>${daysLeft > 0 ? daysLeft : 0}</b><span>days to ${U.fmtDate(s.goalDate)}</span></div>
   </div>`;
+  html += weekStrip(t);
   if (!isToday) html += `<a class="btn btn-block back-today" href="#/today">Back to today</a>`;
-
-  // Activity rings: mobility (outer), food, week's sessions (inner). Days to go in the middle.
-  html += `<div class="ring-wrap">${rings([
-    { pct: d?.mobility ? 1 : 0, color: 'var(--accent)' },
-    { pct: food / P.NUTRITION_ITEMS.length, color: 'var(--accent-2)' },
-    { pct: sum && sum.planned ? sum.done / sum.planned : 0, color: 'var(--violet)' },
-  ], daysLeft > 0 ? String(daysLeft) : daysLeft === 0 ? 'Today' : '-', daysLeft > 0 ? `days to ${U.fmtDate(s.goalDate)}` : 'goal day')}</div>
-  <div class="ring-legend"><span><i style="background:var(--accent)"></i>Mobility</span><span><i style="background:var(--accent-2)"></i>Food ${food}/5</span><span><i style="background:var(--violet)"></i>Week ${sum ? `${sum.done}/${sum.planned}` : '-'}</span></div>`;
   if (isToday) html += backupBanner() + missedBanner(t);
 
   let sessions = items.map((i) => sessionCard(i, U.today())).join('');
   if (away) sessions += `<div class="note">${U.esc(P.sessionInfo(away.key, away.week).title)} moved to ${U.dayName(away.to)} ${U.fmtDate(away.to)}</div>`;
-  if (!items.length && !away) sessions = card(n ? '<div class="kicker">Session</div><div class="hero-title">Rest day</div><p class="muted">Mobility and a walk if you feel like it.</p>' : (t < s.startDate ? `<div class="kicker">Before the program</div><div class="hero-title">Week 1 starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}</div><p class="muted">Get your mobility in, practise the morning weigh-in and nutrition ticks, and get comfortable with the app.</p>` : `<p class="muted">The 9-week program finished on ${U.fmtDate(s.endDate)}.</p>`));
+  if (!items.length && !away) {
+    sessions = `<div class="hero2 hero2-rest"><div class="hb-graphic g-rest">${restIcon()}</div><div class="hb-shade"></div><div class="hero2-in">
+      <div class="disp hero2-title">${n ? 'Rest day' : t < s.startDate ? 'Get ready' : 'Done'}</div>
+      <div class="hero2-sub">${n ? 'Mobility and a walk if you feel like it.' : t < s.startDate ? `Week 1 starts ${U.dayName(s.startDate)} ${U.fmtDate(s.startDate)}. Practise the weigh-in, mobility and food ticks.` : `The program finished on ${U.fmtDate(s.endDate)}.`}</div>
+    </div></div>`;
+  }
   if (n && P.week(n).notes && t === P.weekStart(n)) sessions += `<div class="note">${U.esc(P.week(n).notes)}</div>`;
   html += sessions;
 
-  // Weight and goal tiles
+  // Habit tiles: tap to jump to the full card below.
   const list = P.weights();
   const a7 = P.avg7(t, list) ?? (list.length ? list[list.length - 1].w : null);
-  html += `<div class="tiles">
-    <div class="tile"><div class="kicker">Weight</div><div class="tile-v">${a7 != null ? U.round1(a7).toFixed(1) : '-'}</div><div class="muted">7-day avg - target ${U.round1(P.targetAt(t)).toFixed(1)}</div></div>
-    <div class="tile"><div class="kicker">Goal</div><div class="tile-v">${s.goalWeight.toFixed(1)}</div><div class="muted">${a7 != null ? `${Math.max(0, U.round1(a7 - s.goalWeight)).toFixed(1)} kg to go` : `by ${U.fmtDate(s.goalDate)}`}</div></div>
+  const lost = a7 != null ? s.startWeight - a7 : 0;
+  const wPct = Math.max(0, Math.min(100, (lost / (s.startWeight - s.goalWeight)) * 100));
+  const mob = P.mobilityRoutine(t);
+  html += `<div class="habits">
+    <button class="hab" data-act="jump" data-to="c-weigh"><span class="kick">Weight</span><b>${d?.weight ?? (a7 != null ? U.round1(a7).toFixed(1) : '-')}</b><span class="hab-bar"><i style="width:${wPct}%;background:var(--accent)"></i></span></button>
+    <button class="hab" data-act="jump" data-to="c-food"><span class="kick">Food</span><b>${food}/5</b><span class="hab-bar"><i style="width:${food * 20}%;background:var(--accent-2)"></i></span></button>
+    <button class="hab" data-act="jump" data-to="c-mob"><span class="kick">Mobility</span><b>${d?.mobility ? '&#10003;' : `${mob.minutes} min`}</b><span class="hab-bar"><i style="width:${d?.mobility ? 100 : 0}%;background:var(--violet)"></i></span></button>
   </div>`;
 
   html += weighCard(t);

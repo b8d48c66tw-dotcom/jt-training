@@ -152,7 +152,8 @@ export function renderProgress() {
   const s = state.settings;
   const daysLeft = U.diffDays(U.today(), s.goalDate);
   const cw = P.currentWeek();
-  let html = `<div class="countdown">${daysLeft > 0 ? `<b>${daysLeft}</b> days to ${U.fmtDate(s.goalDate)}` : 'Goal date reached'} - ${s.startWeight} kg to ${s.goalWeight} kg</div>`;
+  let html = `<a class="jr-link" href="#/journal"><span class="disp">Movement journal</span><span class="muted">Best weights and history &#8250;</span></a>`;
+  html += `<div class="countdown">${daysLeft > 0 ? `<b>${daysLeft}</b> days to ${U.fmtDate(s.goalDate)}` : 'Goal date reached'} - ${s.startWeight} kg to ${s.goalWeight} kg</div>`;
   html += weightSection() + kmSection() + paceSection() + strengthSection() + adherenceSection();
   html += card(`<h2>Weekly check-ins</h2><div class="add-grid">${Array.from({ length: cw }, (_, i) => `<a class="btn" href="#/checkin/${i + 1}">Week ${i + 1}</a>`).join('')}</div>`);
   html += card(`<h2>Longer-term goal</h2><p>${U.esc(s.longTermGoal)}.</p>
@@ -191,4 +192,40 @@ export function renderCheckin(nParam) {
   html += card(`<h2>Notes</h2><textarea rows="5" data-input="checkin-notes" data-n="${n}" placeholder="How did the week go? Energy, sleep, hunger, niggles, wins.">${U.esc(state.checkins[n]?.notes || '')}</textarea><p class="muted">Saves as you type.</p>`);
   html += card(`<h2>Backup</h2><p>${last ? `Last backup ${backupAge === 0 ? 'today' : `${backupAge} days ago`}.` : 'No backup yet.'} Back up every Sunday.</p><button class="btn btn-primary btn-block" data-act="export-json">Back up now</button>`, backupAge == null || backupAge >= 7 ? 'card-warn' : '');
   return { title: `Week ${n} check-in`, html };
+}
+
+// ---- movement journal --------------------------------------------------------------------------------
+function movementNames() {
+  const names = new Map();
+  for (const a of state.activities) {
+    if (a.type !== 'strength') continue;
+    for (const e of a.exercises || []) if (e.reps?.some((r) => r != null)) names.set(e.name, (names.get(e.name) || 0) + 1);
+  }
+  return [...names.keys()];
+}
+
+export function renderJournal(nameParam) {
+  if (nameParam) {
+    const name = decodeURIComponent(nameParam);
+    const h = P.exerciseHistory(name);
+    const img = P.imgFor(name);
+    const best = Math.max(0, ...h.map((x) => x.weight || 0));
+    const pts = h.map((x) => ({ x: U.diffDays(state.settings.startDate, x.date), y: x.weight || x.reps.reduce((a, b) => a + b, 0), tip: `${U.fmtDate(x.date)}: ${x.weight ? `${x.weight} kg x ` : ''}${x.reps.join(', ')}` }));
+    let html = `<a class="round-btn back" href="#/journal" aria-label="Back to journal">&#8249;</a>`;
+    html += `<div class="jr-hero">${img ? `<img src="img/ex/${img}-1.jpg" alt="">` : ''}<div class="hb-shade"></div><div class="jr-in"><div class="kick">Movement</div><div class="disp jr-title">${U.esc(name)}</div><div class="teal">${best ? `Best: ${best} kg` : 'Bodyweight'} - ${h.length} session${h.length === 1 ? '' : 's'}</div></div></div>`;
+    html += card(`<h2>${h.some((x) => x.weight) ? 'Weight over time' : 'Reps over time'}</h2>${lineChart({ series: [{ name, cls: 's1', dots: true, points: pts }], yFmt: (v) => v, label: `${name} history` })}`);
+    html += h.slice().reverse().map((x) => `<div class="row-link"><div class="row-top"><b>${U.fmtDateLong(x.date)}</b><span class="muted">${x.effort ? `Effort ${x.effort}` : ''}</span></div><div class="muted">${x.weight ? `${x.weight} kg - ` : ''}${x.reps.join(', ')}</div></div>`).join('');
+    return { title: name, html };
+  }
+  const names = movementNames();
+  let html = `<div class="disp disp-lg">Journal</div><p class="muted">Every movement you have logged, with your best weight. Tap one to see its history.</p>`;
+  if (!names.length) return { title: 'Journal', html: html + card('<p class="muted">Finish a strength session and your movements will appear here.</p>') };
+  html += names.map((n) => {
+    const h = P.exerciseHistory(n);
+    const best = Math.max(0, ...h.map((x) => x.weight || 0));
+    const img = P.imgFor(n);
+    const last = h[h.length - 1];
+    return `<a class="jr-row" href="#/journal/${encodeURIComponent(n)}">${img ? `<img src="img/ex/${img}-0.jpg" alt="">` : '<div class="li-th"></div>'}<div class="jr-m"><b>${U.esc(n)}</b><span>${best ? `Best: ${best} kg` : `Last: ${last.reps.join(', ')}`}</span></div><span class="chev">&#8250;</span></a>`;
+  }).join('');
+  return { title: 'Journal', html };
 }

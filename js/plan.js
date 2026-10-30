@@ -167,6 +167,12 @@ export function exerciseHistory(name) {
   return out.sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
+export function prevWeight(w) {
+  if (w == null) return null;
+  const all = [...state.settings.dumbbellSingles, ...state.settings.dumbbellPairs].sort((a, b) => b - a);
+  return all.find((x) => x < w) ?? null;
+}
+
 export function nextWeight(w) {
   if (w == null) return null;
   const all = [...state.settings.dumbbellSingles, ...state.settings.dumbbellPairs].sort((a, b) => a - b);
@@ -370,8 +376,8 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
   const cool = compress ? Math.min(T.cooldown, 120) : T.cooldown;
   const exs = info.def.exercises.map((id) => exerciseById(id)).filter(Boolean).map((e) => exerciseForWeek(e, n));
   const segs = info.def.warmupSteps?.length
-    ? info.def.warmupSteps.map((x) => ({ l: x.l, s: x.s, k: 'warm', cue: x.cue, img: imgFor(x.l) }))
-    : [{ l: 'Warm-up', s: T.warmup, k: 'warm', cue: info.def.warmup }];
+    ? info.def.warmupSteps.map((x) => ({ l: x.l, s: x.s, k: 'warm', cue: x.cue, img: imgFor(x.l), sec: 'Warm-up' }))
+    : [{ l: 'Warm-up', s: T.warmup, k: 'warm', cue: info.def.warmup, sec: 'Warm-up' }];
   for (let r = 1; r <= rounds; r++) {
     exs.forEach((ex, i) => {
       const name = names?.[i] || ex.name;
@@ -381,20 +387,23 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
       const timed = ex.unit === 'sec' || ex.unit === 'secEach';
       const sides = ex.unit === 'each' || ex.unit === 'secEach';
       const work = ex.work || (timed ? ex.max : sides ? T.sideWork : T.work);
-      segs.push({ l: `Get ready: ${name}`, s: tr, k: 'ready', img, sub, round: r, rounds });
+      const sec = `Round ${r}`;
+      // Exercise details so the player can log each set.
+      const set = { ex: i, exId: ex.id, name, max: ex.max, unit: ex.unit, load: !!ex.load, kg };
+      segs.push({ l: `Get ready: ${name}`, s: tr, k: 'ready', img, sub, round: r, rounds, sec });
       if (sides) {
-        segs.push({ l: name, s: work, k: 'work', img, sub: `Left side - ${sub}`, cue: ex.cue, round: r, rounds });
-        segs.push({ l: 'Switch sides', s: T.switchSec, k: 'switch', img, round: r, rounds });
-        segs.push({ l: name, s: work, k: 'work', img, sub: `Right side - ${sub}`, cue: ex.cue, round: r, rounds });
+        segs.push({ l: name, s: work, k: 'work', img, sub: `Left side - ${sub}`, cue: ex.cue, round: r, rounds, sec, ...set, side: 'left' });
+        segs.push({ l: 'Switch sides', s: T.switchSec, k: 'switch', img, round: r, rounds, sec });
+        segs.push({ l: name, s: work, k: 'work', img, sub: `Right side - ${sub}`, cue: ex.cue, round: r, rounds, sec, ...set, side: 'right' });
       } else {
-        segs.push({ l: name, s: work, k: 'work', img, sub, cue: ex.cue, round: r, rounds });
+        segs.push({ l: name, s: work, k: 'work', img, sub, cue: ex.cue, round: r, rounds, sec, ...set });
       }
     });
-    if (r < rounds) segs.push({ l: 'Round rest - water and breathe', s: rest, k: 'rest', img: imgFor(names?.[0] || exs[0]?.name), sub: `Round ${r + 1} of ${rounds} next: ${names?.[0] || exs[0]?.name}` });
+    if (r < rounds) segs.push({ l: 'Round rest - water and breathe', s: rest, k: 'rest', img: imgFor(names?.[0] || exs[0]?.name), sub: `Round ${r + 1} of ${rounds} next: ${names?.[0] || exs[0]?.name}`, sec: `Round ${r}` });
   }
-  segs.push({ l: 'Set up for the finisher', s: 30, k: 'ready', sub: info.finisher.label, fin: true });
-  for (const s of flatten(info.finisher.segments)) segs.push({ ...s, fin: true });
-  segs.push({ l: 'Cool-down stretch', s: cool, k: 'hold', cue: 'Hip flexors, hamstrings, chest and shoulders. Slow breathing.' });
+  segs.push({ l: 'Set up for the finisher', s: 30, k: 'ready', sub: info.finisher.label, fin: true, sec: 'Finisher' });
+  for (const s of flatten(info.finisher.segments)) segs.push({ ...s, fin: true, sec: 'Finisher', round: undefined, rounds: undefined, finRound: s.round, finRounds: s.rounds });
+  segs.push({ l: 'Cool-down stretch', s: cool, k: 'hold', cue: 'Hip flexors, hamstrings, chest and shoulders. Slow breathing.', sec: 'Cool-down', img: imgFor('Kneeling hip flexor stretch') });
   return { segs, total: totalSec(segs), rounds, compress, info };
 }
 
