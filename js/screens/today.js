@@ -68,7 +68,7 @@ on('jump', (el) => document.getElementById(el.dataset.to)?.scrollIntoView({ beha
 on('quick-timer', (el) => {
   const item = P.findItem(el.dataset.id);
   const info = P.sessionInfo(item.key, item.week);
-  openTimer({ title: info.run.title, segments: info.run.segments, planId: item.id, onDoneHash: `#/session/${item.id}` });
+  openTimer({ title: info.run.title, segments: info.run.segments, planId: item.id, onDoneHash: `#/session/${item.id}`, photo: 'run' });
 });
 
 on('move-open', (el) => { ui.moveOpen = ui.moveOpen === el.dataset.id ? null : el.dataset.id; rerender(); });

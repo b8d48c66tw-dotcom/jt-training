@@ -427,8 +427,9 @@ export function guidedStrength(key, n, rounds, date, compress = false, names = n
     });
     if (r < rounds) segs.push({ l: 'Round rest - water and breathe', s: rest, k: 'rest', img: imgFor(names?.[0] || exs[0]?.name), sub: `Round ${r + 1} of ${rounds} next: ${names?.[0] || exs[0]?.name}`, sec: `Round ${r}` });
   }
-  segs.push({ l: 'Set up for the finisher', s: 30, k: 'ready', sub: info.finisher.label, fin: true, sec: 'Finisher' });
-  for (const s of flatten(info.finisher.segments)) segs.push({ ...s, fin: true, sec: 'Finisher', round: undefined, rounds: undefined, finRound: s.round, finRounds: s.rounds });
+  const finImg = typeImg(/row/i.test(info.finisher.label) ? 'row' : 'bike');
+  segs.push({ l: 'Set up for the finisher', s: 30, k: 'ready', sub: info.finisher.label, fin: true, sec: 'Finisher', img: finImg });
+  for (const s of flatten(info.finisher.segments)) segs.push({ ...s, img: s.img || finImg, fin: true, sec: 'Finisher', round: undefined, rounds: undefined, finRound: s.round, finRounds: s.rounds });
   segs.push({ l: 'Cool-down stretch', s: cool, k: 'hold', cue: 'Hip flexors, hamstrings, chest and shoulders. Slow breathing.', sec: 'Cool-down', img: imgFor('Kneeling hip flexor stretch') });
   return { segs, total: totalSec(segs), rounds, compress, info };
 }

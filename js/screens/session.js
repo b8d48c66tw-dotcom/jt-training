@@ -188,7 +188,7 @@ on('pace', (el) => {
 });
 on('run-timer', () => {
   const { info, item } = ui.sessionCtx;
-  openTimer({ title: info.run.title, segments: info.run.segments, planId: item?.id ?? null, onDoneHash: location.hash });
+  openTimer({ title: info.run.title, segments: info.run.segments, planId: item?.id ?? null, onDoneHash: location.hash, photo: 'run' });
 });
 function readRun(f, ctx) {
   return {

@@ -111,8 +111,11 @@ const setKey = (sg) => `${sg.ex}:${sg.round}`;
 
 // summary: optional HTML shown on the start screen instead of the full step list.
 // meta.guided marks a guided strength session (set logging and the completion screen).
-export function openTimer({ title, segments, planId = null, onDoneHash = null, summary = null, meta = null }) {
-  const segs = flatten(segments);
+export function openTimer({ title, segments, planId = null, onDoneHash = null, summary = null, meta = null, photo = null }) {
+  // Runs and stand-alone finishers have no per-step pictures: use the run, rower or bike photo throughout.
+  const typeKey = photo || (/row/i.test(title) ? 'row' : /bike|spin/i.test(title) ? 'bike' : '');
+  const fallback = typeKey ? P.typeImg(typeKey) : null;
+  const segs = flatten(segments).map((sg) => (sg.img || !fallback ? sg : { ...sg, img: fallback }));
   const el = document.getElementById('timer');
   const total = totalSec(segs);
   const hasOpen = segs.some((sg) => !sg.s);
