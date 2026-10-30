@@ -36,7 +36,7 @@ function render() {
   const view = document.getElementById('view');
   view.innerHTML = html;
   hydrateCharts(view);
-  document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === (TAB_FOR[name] || 'today')));
+  document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === (TAB_FOR[name] ?? (['settings', 'edit'].includes(name) ? '' : 'today'))));
 }
 
 function applyTheme() {
