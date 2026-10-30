@@ -2,6 +2,7 @@
 import { state, peekDay } from './store.js';
 import * as U from './util.js';
 import { flatten, totalSec } from './timer.js';
+import { ILL } from './media.js';
 
 export const CORE = ['strengthA', 'tueRun', 'strengthB', 'sunRun'];
 export const isCore = (k) => CORE.includes(k);
@@ -353,7 +354,27 @@ export function mobilitySegments(drills) {
 }
 
 // ---- exercise photos -------------------------------------------------------------------------
-export const imgFor = (name) => (name && state.program.exerciseImages?.[name]) || null;
+// imgFor returns a key ("ill:<name>" for an illustration, "ex:<id>" for a photo); imgSrc turns it into a file.
+const useIll = () => state.settings.visuals !== 'photos';
+export function imgFor(name) {
+  if (!name) return null;
+  if (useIll() && ILL[name]) return `ill:${name}`;
+  const id = state.program.exerciseImages?.[name];
+  return id ? `ex:${id}` : null;
+}
+export const isIll = (key) => !!key && key.startsWith('ill:');
+// Frame 0 is the start position, frame 1 the end position (illustrations with one pose use it for both).
+export function imgSrc(key, frame = 1) {
+  if (!key) return '';
+  if (isIll(key)) {
+    const [id, frames] = ILL[key.slice(4)];
+    return `img/ill/${id}-${frames[Math.min(frame, frames.length - 1)]}.webp`;
+  }
+  return `img/ex/${key.slice(3)}-${frame}.jpg`;
+}
+export const isStill = (key) => isIll(key) && ILL[key.slice(4)][1].length === 1;
+// Illustration for a whole session type (run, bike, row), when illustrations are on.
+export const typeImg = (t) => (useIll() && ILL[`_${t}`] ? `ill:_${t}` : null);
 
 // ---- guided strength sessions -------------------------------------------------------------------
 // Weight to use for an exercise: last time's weight, or the next one up if "ready to go up".

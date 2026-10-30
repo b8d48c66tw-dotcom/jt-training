@@ -17,34 +17,40 @@ export function sessionVisual(item) {
   if (info.type === 'strength') {
     const first = P.exerciseById(info.def.exercises[0]);
     const img = first ? P.imgFor(P.exerciseForWeek(first, item.week).name) : null;
-    if (img) return { photo: `img/ex/${img}-1.jpg`, type: 'strength' };
+    if (img) return { photo: P.imgSrc(img, 1), ill: P.isIll(img), type: 'strength' };
   }
+  const run = info.type === 'run' ? P.typeImg('run') : null;
+  if (run) return { photo: P.imgSrc(run), ill: true, type: 'run' };
   return { photo: null, type: info.type === 'other' ? 'floating' : info.type };
 }
 
 // Full-bleed background layer for heroes.
 export function heroBg(item) {
   const v = sessionVisual(item);
-  if (v.photo) return `<div class="hb-photo" style="background-image:url('${v.photo}')"></div>`;
+  if (v.photo) return `<div class="hb-photo${v.ill ? ' hb-ill' : ''}" style="background-image:url('${v.photo}')"></div>`;
   return `<div class="hb-graphic g-${v.type}">${ICONS[v.type] || ICONS.floating}</div>`;
 }
 
 // Small square thumbnail for list rows.
 export function thumb(item, cls = '') {
   const v = sessionVisual(item);
-  if (v.photo) return `<img class="thumb ${cls}" src="${v.photo}" alt="">`;
+  if (v.photo) return `<img class="thumb ${cls}${v.ill ? ' ill' : ''}" src="${v.photo}" alt="">`;
   return `<div class="thumb g-${v.type} ${cls}">${ICONS[v.type] || ICONS.floating}</div>`;
 }
 export const restThumb = () => `<div class="thumb g-rest">${ICONS.rest}</div>`;
 // Graphic tile for a type (run, cricket, floating, rest, strength) with optional extra class.
 export const graphic = (type, cls = 'thumb') => `<div class="${cls} g-${type}">${ICONS[type] || ICONS.floating}</div>`;
+// Image tag for an exercise image key (see P.imgFor), or '' when there is none.
+export const pic = (key, cls = '', frame = 1) => (key ? `<img class="${cls}${P.isIll(key) ? ' ill' : ''}" src="${P.imgSrc(key, frame)}" alt="">` : '');
 // Thumbnail for a logged activity: strength uses its first exercise photo.
 export function activityThumb(a, cls = 'thumb') {
   if (a.type === 'strength') {
     const img = P.imgFor(a.exercises?.[0]?.name) || P.imgFor(P.exerciseById(state.program.strength[a.sessionKey]?.exercises?.[0])?.name);
-    if (img) return `<img class="${cls}" src="img/ex/${img}-1.jpg" alt="">`;
+    if (img) return pic(img, cls);
     return graphic('strength', cls);
   }
+  const ill = a.type === 'run' ? P.typeImg('run') : a.type === 'cardio' ? P.typeImg(/row/i.test(a.title || '') ? 'row' : 'bike') : null;
+  if (ill) return pic(ill, cls);
   return graphic(a.type === 'run' ? 'run' : a.type === 'cricket' ? 'cricket' : a.type === 'cardio' ? 'floating' : 'rest', cls);
 }
 

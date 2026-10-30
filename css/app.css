@@ -825,3 +825,26 @@ input.switch:checked::after { transform: translateX(22px); }
 :root[data-theme="light"] .hero2 .tag-t, :root[data-theme="light"] .sp-hero .tag-t { background: rgba(94, 234, 212, .25); color: #5eead4; }
 :root[data-theme="light"] .hero2-sub, :root[data-theme="light"] .sp-sub, :root[data-theme="light"] .hero2-links a, :root[data-theme="light"] .hero2-links button { color: #d6dcef; }
 :root[data-theme="light"] .hero2-in .kick, :root[data-theme="light"] .sp-in .kick { color: #c6cde3; }
+
+/* =================== Exercise illustrations =================== */
+/* Illustrations sit on their own pale blue, shown whole rather than cropped. */
+:root { --ill-bg: #dbeefb; }
+img.ill, .flip.ill { background: var(--ill-bg); object-fit: cover; }
+.flip.ill img { object-fit: contain; }
+/* Heroes: the illustration gets its own pale panel up top, text stays on dark below it. */
+.hb-photo.hb-ill { bottom: auto; height: 230px; background-color: var(--ill-bg); background-size: auto 100%; background-position: center bottom; background-repeat: no-repeat; }
+.hero2:has(.hb-ill), .sp-hero:has(.hb-ill) { padding-top: 214px; background: #0e1424; }
+.hero2:has(.hb-ill) .hb-shade, .sp-hero:has(.hb-ill) .hb-shade { background: linear-gradient(180deg, rgba(14, 20, 36, 0) 0, rgba(14, 20, 36, 0) 200px, #0e1424 230px); }
+/* Player: a rounded illustration panel under the timer bar instead of a full-screen photo. */
+/* It joins the layout and takes whatever height the text and controls leave free. */
+.pl-bg:has(.flip-bg.ill) { position: relative; inset: auto; order: 1; flex: 1 1 0; min-height: 120px; max-height: 46vh; margin: 14px 0 6px; border-radius: 26px; overflow: hidden; }
+.timer:has(.flip-bg.ill) .t-main.live { flex: none; order: 2; }
+.timer:has(.flip-bg.ill) .pl-sheet, .timer:has(.flip-bg.ill) .t-ctrl { order: 2; }
+.flip-bg.ill img { object-fit: contain; }
+.timer:has(.flip-bg.ill) .pl-shade { display: none; }
+.timer.k-start .pl-bg:has(.flip-bg.ill) { display: none; }
+.jr-hero img.ill { object-fit: contain; object-position: center 0; height: 82%; }
+.jr-hero:has(img.ill) { background: var(--ill-bg); }
+.jr-pics img.ill { object-fit: contain; }
+.seg-label { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 6px; }
+.credit a { color: var(--ink-2); font-weight: 700; }

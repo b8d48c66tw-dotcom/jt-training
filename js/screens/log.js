@@ -3,7 +3,7 @@ import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, rerender } from '../core.js';
-import { activityThumb, graphic } from '../visual.js';
+import { activityThumb, graphic, pic } from '../visual.js';
 
 const FILTERS = [['all', 'All'], ['run', 'Runs'], ['strength', 'Strength'], ['cricket', 'Cricket'], ['cardio', 'Cardio'], ['days', 'Daily']];
 const WORKOUT = ['run', 'strength', 'cardio', 'other'];
@@ -42,16 +42,17 @@ function weekGlance() {
 function quickAdd() {
   const photo = (key) => {
     const img = P.imgFor(P.exerciseById(state.program.strength[key]?.exercises?.[0])?.name);
-    return img ? `<img class="qa-pic" src="img/ex/${img}-1.jpg" alt="">` : graphic('strength', 'qa-pic');
+    return img ? pic(img, 'qa-pic') : graphic('strength', 'qa-pic');
   };
+  const typePic = (t, g) => pic(P.typeImg(t), 'qa-pic') || graphic(g, 'qa-pic');
   const tile = (href, pic, label) => `<a class="qa" href="${href}">${pic}<span>${label}</span></a>`;
   return `<div class="sec-h"><span>Add a log</span><small>Quick add</small></div>
     <div class="qa-row">
-      ${tile('#/new/run', graphic('run', 'qa-pic'), 'Run')}
+      ${tile('#/new/run', typePic('run', 'run'), 'Run')}
       ${tile('#/new/strengthA', photo('strengthA'), 'Strength A')}
       ${tile('#/new/strengthB', photo('strengthB'), 'Strength B')}
       ${tile('#/new/cricket', graphic('cricket', 'qa-pic'), 'Cricket')}
-      ${tile('#/new/cardio', graphic('floating', 'qa-pic'), 'Cardio')}
+      ${tile('#/new/cardio', typePic('bike', 'floating'), 'Cardio')}
       ${tile('#/new/other', graphic('rest', 'qa-pic'), 'Other')}
     </div>`;
 }

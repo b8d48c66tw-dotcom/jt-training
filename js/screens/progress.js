@@ -3,7 +3,7 @@ import { state, saveState } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, card, stat, rerender, rings } from '../core.js';
-import { weekStreak, graphic } from '../visual.js';
+import { weekStreak, graphic, pic } from '../visual.js';
 import { lineChart, barChart } from '../charts.js';
 
 const legend = (items) => `<div class="legend">${items.map(([cls, label]) => `<span><i class="sw ${cls}"></i>${U.esc(label)}</span>`).join('')}</div>`;
@@ -198,7 +198,7 @@ function journalPreview() {
   for (const a of state.activities) if (a.type === 'strength') for (const e of a.exercises || []) if (e.reps?.some((r) => r != null)) names.set(e.name, true);
   const pics = [...names.keys()].map((n) => P.imgFor(n)).filter(Boolean).slice(0, 4);
   return `<a class="jr-card" href="#/journal">
-    <div class="jr-pics">${pics.length ? pics.map((id) => `<img src="img/ex/${id}-1.jpg" alt="">`).join('') : '<span class="muted">Your lifts will appear here</span>'}</div>
+    <div class="jr-pics">${pics.length ? pics.map((k) => pic(k)).join('') : '<span class="muted">Your lifts will appear here</span>'}</div>
     <div class="jr-foot"><span><b class="disp">Movement journal</b><small>${names.size} movements - best weights and history</small></span><span class="chev">&#8250;</span></div>
   </a>`;
 }
@@ -276,7 +276,7 @@ export function renderJournal(nameParam) {
     const best = Math.max(0, ...h.map((x) => x.weight || 0));
     const pts = h.map((x) => ({ x: U.diffDays(state.settings.startDate, x.date), y: x.weight || x.reps.reduce((a, b) => a + b, 0), tip: `${U.fmtDate(x.date)}: ${x.weight ? `${x.weight} kg x ` : ''}${x.reps.join(', ')}` }));
     let html = `<a class="round-btn back" href="#/journal" aria-label="Back to journal">&#8249;</a>`;
-    html += `<div class="jr-hero">${img ? `<img src="img/ex/${img}-1.jpg" alt="">` : ''}<div class="hb-shade"></div><div class="jr-in"><div class="kick">Movement</div><div class="disp jr-title">${U.esc(name)}</div><div class="teal">${best ? `Best: ${best} kg` : 'Bodyweight'} - ${h.length} session${h.length === 1 ? '' : 's'}</div></div></div>`;
+    html += `<div class="jr-hero">${pic(img)}<div class="hb-shade"></div><div class="jr-in"><div class="kick">Movement</div><div class="disp jr-title">${U.esc(name)}</div><div class="teal">${best ? `Best: ${best} kg` : 'Bodyweight'} - ${h.length} session${h.length === 1 ? '' : 's'}</div></div></div>`;
     html += card(`<h2>${h.some((x) => x.weight) ? 'Weight over time' : 'Reps over time'}</h2>${lineChart({ series: [{ name, cls: 's1', dots: true, points: pts }], yFmt: (v) => v, label: `${name} history` })}`);
     html += h.slice().reverse().map((x) => `<div class="row-link"><div class="row-top"><b>${U.fmtDateLong(x.date)}</b><span class="muted">${x.effort ? `Effort ${x.effort}` : ''}</span></div><div class="muted">${x.weight ? `${x.weight} kg - ` : ''}${x.reps.join(', ')}</div></div>`).join('');
     return { title: name, html };
@@ -289,7 +289,7 @@ export function renderJournal(nameParam) {
     const best = Math.max(0, ...h.map((x) => x.weight || 0));
     const img = P.imgFor(n);
     const last = h[h.length - 1];
-    return `<a class="jr-row" href="#/journal/${encodeURIComponent(n)}">${img ? `<img src="img/ex/${img}-0.jpg" alt="">` : '<div class="li-th"></div>'}<div class="jr-m"><b>${U.esc(n)}</b><span>${best ? `Best: ${best} kg` : `Last: ${last.reps.join(', ')}`}</span></div><span class="chev">&#8250;</span></a>`;
+    return `<a class="jr-row" href="#/journal/${encodeURIComponent(n)}">${pic(img, '', 0) || '<div class="li-th"></div>'}<div class="jr-m"><b>${U.esc(n)}</b><span>${best ? `Best: ${best} kg` : `Last: ${last.reps.join(', ')}`}</span></div><span class="chev">&#8250;</span></a>`;
   }).join('');
   return { title: 'Journal', html };
 }

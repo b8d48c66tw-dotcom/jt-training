@@ -3,7 +3,7 @@ import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, card, scale, field, formData, commit, toast, go, openTimer, flip } from '../core.js';
-import { heroBg } from '../visual.js';
+import { heroBg, pic } from '../visual.js';
 import { primaryAction, movePanel } from './today.js';
 
 const RUN_KINDS = { easy: 'Easy', runwalk: 'Run/walk', long: 'Long easy', tempo: 'Tempo or intervals', race: 'Race' };
@@ -293,7 +293,7 @@ on('del-log', (el) => {
 });
 
 // ---- session preview ------------------------------------------------------------------------------
-const row = (img, title, sub) => `<div class="li">${img ? `<img src="img/ex/${img}-1.jpg" alt="">` : '<div class="li-th"></div>'}<div class="li-m"><b>${title}</b>${sub ? `<div class="sb">${sub}</div>` : ''}</div></div>`;
+const row = (img, title, sub) => `<div class="li">${pic(img) || '<div class="li-th"></div>'}<div class="li-m"><b>${title}</b>${sub ? `<div class="sb">${sub}</div>` : ''}</div></div>`;
 const secHead = (name, small) => `<div class="sec-h"><span>${U.esc(name)}</span>${small ? `<small>${U.esc(small)}</small>` : ''}</div>`;
 const mmss = (sec) => (sec ? U.fmtDuration(sec) : '');
 

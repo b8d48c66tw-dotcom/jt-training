@@ -126,6 +126,7 @@ on('theme-set', (el) => {
   else document.documentElement.dataset.theme = el.dataset.v;
   commit();
 });
+on('visuals-set', (el) => { state.settings.visuals = el.dataset.v; commit(); });
 
 export function renderSettings() {
   const s = state.settings;
@@ -186,7 +187,9 @@ export function renderSettings() {
 
   // Display
   html += `<div class="sec-h"><span>Display</span></div>
-  <div class="seg seg-theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<button class="${(s.theme === v || (v === 'auto' && s.theme === 'dark')) ? 'on' : ''}" data-act="theme-set" data-v="${v}">${l}</button>`).join('')}</div>`;
+  <div class="seg seg-theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<button class="${(s.theme === v || (v === 'auto' && s.theme === 'dark')) ? 'on' : ''}" data-act="theme-set" data-v="${v}">${l}</button>`).join('')}</div>
+  <div class="seg-label">Exercise pictures</div>
+  <div class="seg seg-theme">${[['ill', 'Illustrations'], ['photos', 'Photos']].map(([v, l]) => `<button class="${(s.visuals || 'ill') === v ? 'on' : ''}" data-act="visuals-set" data-v="${v}">${l}</button>`).join('')}</div>`;
 
   // Help
   html += `<div class="sec-h"><span>Help</span><small>Tap to open</small></div>`;
@@ -207,7 +210,7 @@ export function renderSettings() {
       <li><b>5 min guided warm-up</b>: a little longer at 38, with calf work for the old strain.</li>
       <li><b>Time of day</b>: morning or evening gives the same long-term results. Pick a regular time.</li></ul>`);
 
-  html += `<p class="muted center credit">Exercise photos: Free Exercise DB (github.com/yuhonas/free-exercise-db), public domain.</p>`;
+  html += `<p class="muted center credit"><a href="https://repdb.co" target="_blank" rel="noopener">Exercise data by RepDB (repdb.co)</a><br>Exercise photos: Free Exercise DB (github.com/yuhonas/free-exercise-db), public domain.</p>`;
   html += `<button class="btn btn-danger btn-block" data-act="reset-all">Reset all data</button>`;
   return { title: 'Settings', html };
 }

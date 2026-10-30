@@ -87,9 +87,11 @@ const KIND_LABEL = {
 let active = null;
 
 // Two-photo "flipbook" demo of an exercise (start and end positions, cross-fading).
-export function flip(imgId, cls = '') {
-  if (!imgId) return '';
-  return `<div class="flip ${cls}" role="img" aria-label="Exercise demonstration"><img src="img/ex/${imgId}-0.jpg" alt=""><img src="img/ex/${imgId}-1.jpg" alt=""></div>`;
+export function flip(key, cls = '') {
+  if (!key) return '';
+  const ill = P.isIll(key) ? ' ill' : '';
+  const second = P.isStill(key) ? '' : `<img src="${P.imgSrc(key, 1)}" alt="">`;
+  return `<div class="flip ${cls}${ill}" role="img" aria-label="Exercise demonstration"><img src="${P.imgSrc(key, 0)}" alt="">${second}</div>`;
 }
 
 // ---- live player -----------------------------------------------------------------------------------
