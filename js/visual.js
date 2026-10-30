@@ -4,7 +4,7 @@ import * as P from './plan.js';
 import * as U from './util.js';
 
 // Simple line icons for sessions without an exercise photo.
-const ICONS = {
+export const ICONS = {
   run: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="30" cy="8" r="4.5"/><path d="M21 17l8-2 5 7 7 2M27 16l-4 11 7 6-2 11M23 27l-5 6-9 1M33 22l-3 7"/></svg>',
   cricket: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M30 6l6 6-17 17-6-6zM13 23l-6 6M10 32l-4 4"/><circle cx="35" cy="34" r="5"/></svg>',
   floating: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M6 30c5-6 9-6 14 0s9 6 14 0 9-6 8-3M6 20c5-6 9-6 14 0s9 6 14 0 9-6 8-3"/></svg>',
@@ -36,6 +36,17 @@ export function thumb(item, cls = '') {
   return `<div class="thumb g-${v.type} ${cls}">${ICONS[v.type] || ICONS.floating}</div>`;
 }
 export const restThumb = () => `<div class="thumb g-rest">${ICONS.rest}</div>`;
+// Graphic tile for a type (run, cricket, floating, rest, strength) with optional extra class.
+export const graphic = (type, cls = 'thumb') => `<div class="${cls} g-${type}">${ICONS[type] || ICONS.floating}</div>`;
+// Thumbnail for a logged activity: strength uses its first exercise photo.
+export function activityThumb(a, cls = 'thumb') {
+  if (a.type === 'strength') {
+    const img = P.imgFor(a.exercises?.[0]?.name) || P.imgFor(P.exerciseById(state.program.strength[a.sessionKey]?.exercises?.[0])?.name);
+    if (img) return `<img class="${cls}" src="img/ex/${img}-1.jpg" alt="">`;
+    return graphic('strength', cls);
+  }
+  return graphic(a.type === 'run' ? 'run' : a.type === 'cricket' ? 'cricket' : a.type === 'cardio' ? 'floating' : 'rest', cls);
+}
 
 // Status of a whole day, for the week strip and program grid.
 export function dayState(iso, t = U.today()) {

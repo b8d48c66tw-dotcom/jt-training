@@ -2,7 +2,8 @@
 import { state, saveState } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
-import { on, ui, card, stat, rerender } from '../core.js';
+import { on, ui, card, stat, rerender, rings } from '../core.js';
+import { weekStreak, graphic } from '../visual.js';
 import { lineChart, barChart } from '../charts.js';
 
 const legend = (items) => `<div class="legend">${items.map(([cls, label]) => `<span><i class="sw ${cls}"></i>${U.esc(label)}</span>`).join('')}</div>`;
@@ -50,7 +51,7 @@ function weightSection() {
     const diff = proj.value - s.goalWeight;
     msg = `<p class="${diff <= 0.3 ? 'good' : 'warn-text'}">${diff <= 0.3 ? 'On track for' : `Trending ${U.round1(diff)} kg above`} ${s.goalWeight} kg on ${U.fmtDate(s.goalDate)}.</p>`;
   }
-  return card(`<h2>Bodyweight</h2>${tiles}${chart}${legend([['dot-s1', 'Daily weigh-in'], ['ln-s1', '7-day average'], ['ln-muted dash', 'Target 0.7 kg/wk'], ['ln-s1 dash', 'Projection']])}${msg}`);
+  return card(`<h2>Bodyweight</h2>${chart}${legend([['dot-s1', 'Daily weigh-in'], ['ln-s1', '7-day average'], ['ln-muted dash', `Target ${U.round1(((s.startWeight - s.goalWeight) / U.diffDays(s.startDate, s.goalDate)) * 7)} kg/wk`], ['ln-s1 dash', 'Projection']])}${msg}`);
 }
 
 on('km-range', (el) => { ui.kmRange = el.dataset.r; rerender(); });
@@ -148,16 +149,79 @@ function adherenceSection() {
   </div>`);
 }
 
+function goalHero() {
+  const s = state.settings;
+  const list = P.weights();
+  const last = list[list.length - 1];
+  const avg = last ? P.avg7(last.date, list) : null;
+  const lost = avg != null ? Math.max(0, s.startWeight - avg) : 0;
+  const need = s.startWeight - s.goalWeight;
+  const pct = Math.min(1, lost / need);
+  const proj = P.projection(list);
+  const daysLeft = Math.max(0, U.diffDays(U.today(), s.goalDate));
+  return `<div class="goal-hero">
+    <div class="gh-ring">${rings([{ pct, color: 'var(--accent)' }], `${Math.round(pct * 100)}%`, 'of goal', 150)}</div>
+    <div class="gh-m">
+      <div class="kick">${s.startWeight} kg to ${s.goalWeight} kg</div>
+      <div class="gh-big">${avg != null ? U.round1(avg).toFixed(1) : '-'}<small>kg</small></div>
+      <div class="gh-sub">${avg != null ? `${U.round1(lost).toFixed(1)} kg down - ${U.round1(Math.max(0, avg - s.goalWeight)).toFixed(1)} to go` : 'Log a morning weigh-in to start'}</div>
+      <div class="gh-tags"><span class="tag tag-t">${daysLeft} days left</span>${proj ? `<span class="tag ${proj.value <= s.goalWeight + 0.3 ? 'tag-good' : 'tag-warn'}">On ${U.fmtDate(s.goalDate)}: ${U.round1(proj.value).toFixed(1)}</span>` : ''}</div>
+    </div>
+  </div>`;
+}
+
+function streakTiles() {
+  const st = P.streaks();
+  const t = U.today();
+  let done = 0, due = 0;
+  for (let n = 1; n <= P.weekCount(); n++) {
+    for (const d of P.weekDays(n)) {
+      if (d > t) break;
+      for (const i of P.itemsOn(d)) {
+        if (!P.isCore(i.key)) continue;
+        const stt = P.statusOf(i, t);
+        if (stt === 'done') { done++; due++; } else if (d < t && stt !== 'skipped') due++;
+      }
+    }
+  }
+  const tile = (v, l, sub, tone) => `<div class="stk-tile t-${tone}"><b>${v}</b><span>${l}</span><small>${sub}</small></div>`;
+  return `<div class="stk-grid">
+    ${tile(`${done}/${due}`, 'Sessions', 'done so far', 'teal')}
+    ${tile(weekStreak(), 'Week streak', 'weeks training', 'orange')}
+    ${tile(st.weighIn, 'Weigh-ins', 'days in a row', 'blue')}
+    ${tile(st.mobility, 'Mobility', 'days in a row', 'violet')}
+  </div>`;
+}
+
+function journalPreview() {
+  const names = new Map();
+  for (const a of state.activities) if (a.type === 'strength') for (const e of a.exercises || []) if (e.reps?.some((r) => r != null)) names.set(e.name, true);
+  const pics = [...names.keys()].map((n) => P.imgFor(n)).filter(Boolean).slice(0, 4);
+  return `<a class="jr-card" href="#/journal">
+    <div class="jr-pics">${pics.length ? pics.map((id) => `<img src="img/ex/${id}-1.jpg" alt="">`).join('') : '<span class="muted">Your lifts will appear here</span>'}</div>
+    <div class="jr-foot"><span><b class="disp">Movement journal</b><small>${names.size} movements - best weights and history</small></span><span class="chev">&#8250;</span></div>
+  </a>`;
+}
+
 export function renderProgress() {
   const s = state.settings;
-  const daysLeft = U.diffDays(U.today(), s.goalDate);
   const cw = P.currentWeek();
-  let html = `<a class="jr-link" href="#/journal"><span class="disp">Movement journal</span><span class="muted">Best weights and history &#8250;</span></a>`;
-  html += `<div class="countdown">${daysLeft > 0 ? `<b>${daysLeft}</b> days to ${U.fmtDate(s.goalDate)}` : 'Goal date reached'} - ${s.startWeight} kg to ${s.goalWeight} kg</div>`;
-  html += weightSection() + kmSection() + paceSection() + strengthSection() + adherenceSection();
-  html += card(`<h2>Weekly check-ins</h2><div class="add-grid">${Array.from({ length: cw }, (_, i) => `<a class="btn" href="#/checkin/${i + 1}">Week ${i + 1}</a>`).join('')}</div>`);
-  html += card(`<h2>Longer-term goal</h2><p>${U.esc(s.longTermGoal)}.</p>
-    <p class="muted">Baseline: Newcastle Half, 19 Apr 2026 - 21.4 km in 2:37:50 (7:23/km) with walk breaks. Sub-6:00/km means about 2:06:36 or faster.</p>`, 'card-quiet');
+  let html = `<div class="page-head"><div class="disp disp-lg">Progress</div><div class="muted">Week ${cw} of ${P.weekCount()} - ${U.esc(P.week(cw).phase)}</div></div>`;
+  html += goalHero() + streakTiles() + journalPreview();
+  html += `<div class="prog-page">${weightSection()}${kmSection()}${paceSection()}${strengthSection()}</div>`;
+  html += `<div class="sec-h"><span>Weekly check-ins</span><small>Review each week</small></div>
+    <div class="ci-row">${Array.from({ length: P.weekCount() }, (_, i) => {
+      const n = i + 1;
+      const future = n > cw;
+      const hasNotes = !!state.checkins[n]?.notes;
+      return future ? `<span class="ci ci-future"><b>W${n}</b><small>${U.esc(P.week(n).phase)}</small></span>`
+        : `<a class="ci ${n === cw ? 'ci-now' : ''}" href="#/checkin/${n}"><b>W${n}</b><small>${hasNotes ? '&#10003; Notes' : n === cw ? 'This week' : 'Review'}</small></a>`;
+    }).join('')}</div>`;
+  html += `<div class="hero2 hero2-goal">${graphic('run', 'hb-graphic')}<div class="hb-shade"></div><div class="hero2-in">
+      <div class="kick">The bigger goal</div>
+      <div class="disp hero2-title">Half marathon<br>sub 6:00/km</div>
+      <div class="hero2-sub">${U.esc(s.longTermGoal)}. Baseline: Newcastle Half, 19 Apr 2026 - 2:37:50 (7:23/km) with walk breaks. Sub-6:00/km is about 2:06:36.</div>
+    </div></div>`;
   return { title: 'Progress', html };
 }
 
