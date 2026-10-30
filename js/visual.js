@@ -2,6 +2,7 @@
 import { state, peekDay } from './store.js';
 import * as P from './plan.js';
 import * as U from './util.js';
+import { figSvg } from './figure.js';
 
 // Simple line icons for sessions without an exercise photo.
 export const ICONS = {
@@ -17,16 +18,17 @@ export function sessionVisual(item) {
   if (info.type === 'strength') {
     const first = P.exerciseById(info.def.exercises[0]);
     const img = first ? P.imgFor(P.exerciseForWeek(first, item.week).name) : null;
-    if (img) return { photo: P.imgSrc(img, 1), ill: P.isIll(img), type: 'strength' };
+    if (img) return { key: img, photo: P.isFig(img) ? null : P.imgSrc(img, 1), ill: P.isIll(img), type: 'strength' };
   }
   const run = info.type === 'run' ? P.typeImg('run') : null;
-  if (run) return { photo: P.imgSrc(run), ill: true, type: 'run' };
+  if (run) return { key: run, photo: P.isFig(run) ? null : P.imgSrc(run), ill: true, type: 'run' };
   return { photo: null, type: info.type === 'other' ? 'floating' : info.type };
 }
 
 // Full-bleed background layer for heroes.
 export function heroBg(item) {
   const v = sessionVisual(item);
+  if (P.isFig(v.key)) return `<div class="hb-fig">${figSvg(v.key.slice(4))}</div>`;
   if (v.photo) return `<div class="hb-photo${v.ill ? ' hb-ill' : ''}" style="background-image:url('${v.photo}')"></div>`;
   return `<div class="hb-graphic g-${v.type}">${ICONS[v.type] || ICONS.floating}</div>`;
 }
@@ -34,6 +36,7 @@ export function heroBg(item) {
 // Small square thumbnail for list rows.
 export function thumb(item, cls = '') {
   const v = sessionVisual(item);
+  if (P.isFig(v.key)) return `<div class="thumb ${cls} figbox">${figSvg(v.key.slice(4))}</div>`;
   if (v.photo) return `<img class="thumb ${cls}${v.ill ? ' ill' : ''}" src="${v.photo}" alt="">`;
   return `<div class="thumb g-${v.type} ${cls}">${ICONS[v.type] || ICONS.floating}</div>`;
 }
@@ -41,7 +44,8 @@ export const restThumb = () => `<div class="thumb g-rest">${ICONS.rest}</div>`;
 // Graphic tile for a type (run, cricket, floating, rest, strength) with optional extra class.
 export const graphic = (type, cls = 'thumb') => `<div class="${cls} g-${type}">${ICONS[type] || ICONS.floating}</div>`;
 // Image tag for an exercise image key (see P.imgFor), or '' when there is none.
-export const pic = (key, cls = '', frame = 1) => (key ? `<img class="${cls}${P.isIll(key) ? ' ill' : ''}" src="${P.imgSrc(key, frame)}" alt="">` : '');
+export const pic = (key, cls = '', frame = 1) => (!key ? '' : P.isFig(key) ? `<div class="${cls} figbox">${figSvg(key.slice(4))}</div>`
+  : `<img class="${cls}${P.isIll(key) ? ' ill' : ''}" src="${P.imgSrc(key, frame)}" alt="">`);
 // Thumbnail for a logged activity: strength uses its first exercise photo.
 export function activityThumb(a, cls = 'thumb') {
   if (a.type === 'strength') {

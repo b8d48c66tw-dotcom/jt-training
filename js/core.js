@@ -4,6 +4,7 @@ import * as P from './plan.js';
 import { weekStreak } from './visual.js';
 import { IntervalTimer, flatten, totalSec } from './timer.js';
 import * as U from './util.js';
+import { figSvg } from './figure.js';
 
 export const actions = {};
 export const on = (name, fn) => { actions[name] = fn; };
@@ -89,6 +90,7 @@ let active = null;
 // Two-photo "flipbook" demo of an exercise (start and end positions, cross-fading).
 export function flip(key, cls = '') {
   if (!key) return '';
+  if (P.isFig(key)) return `<div class="flip ${cls} figbox">${figSvg(key.slice(4))}</div>`;
   const ill = P.isIll(key) ? ' ill' : '';
   const second = P.isStill(key) ? '' : `<img src="${P.imgSrc(key, 1)}" alt="">`;
   return `<div class="flip ${cls}${ill}" role="img" aria-label="Exercise demonstration"><img src="${P.imgSrc(key, 0)}" alt="">${second}</div>`;

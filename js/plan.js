@@ -3,6 +3,7 @@ import { state, peekDay } from './store.js';
 import * as U from './util.js';
 import { flatten, totalSec } from './timer.js';
 import { ILL } from './media.js';
+import { FIG } from './figure.js';
 
 export const CORE = ['strengthA', 'tueRun', 'strengthB', 'sunRun'];
 export const isCore = (k) => CORE.includes(k);
@@ -354,15 +355,19 @@ export function mobilitySegments(drills) {
 }
 
 // ---- exercise photos -------------------------------------------------------------------------
-// imgFor returns a key ("ill:<name>" for an illustration, "ex:<id>" for a photo); imgSrc turns it into a file.
-const useIll = () => state.settings.visuals !== 'photos';
+// imgFor returns a key: "fig:<motion>" for an animated figure, "ill:<name>" for an illustration, "ex:<id>" for a photo.
+// imgSrc turns illustration and photo keys into a file. Figures are the default (settings.visuals).
+const mode = () => state.settings.visuals || 'fig';
+const useIll = () => mode() === 'ill';
 export function imgFor(name) {
   if (!name) return null;
+  if (mode() === 'fig' && FIG[name]) return `fig:${FIG[name]}`;
   if (useIll() && ILL[name]) return `ill:${name}`;
   const id = state.program.exerciseImages?.[name];
   return id ? `ex:${id}` : null;
 }
 export const isIll = (key) => !!key && key.startsWith('ill:');
+export const isFig = (key) => !!key && key.startsWith('fig:');
 // Frame 0 is the start position, frame 1 the end position (illustrations with one pose use it for both).
 export function imgSrc(key, frame = 1) {
   if (!key) return '';
@@ -373,8 +378,8 @@ export function imgSrc(key, frame = 1) {
   return `img/ex/${key.slice(3)}-${frame}.jpg`;
 }
 export const isStill = (key) => isIll(key) && ILL[key.slice(4)][1].length === 1;
-// Illustration for a whole session type (run, bike, row), when illustrations are on.
-export const typeImg = (t) => (useIll() && ILL[`_${t}`] ? `ill:_${t}` : null);
+// Figure or illustration for a whole session type (run, bike, row); photos mode has none.
+export const typeImg = (t) => (mode() === 'fig' && FIG[`_${t}`] ? `fig:${FIG[`_${t}`]}` : useIll() && ILL[`_${t}`] ? `ill:_${t}` : null);
 
 // ---- guided strength sessions -------------------------------------------------------------------
 // Weight to use for an exercise: last time's weight, or the next one up if "ready to go up".
