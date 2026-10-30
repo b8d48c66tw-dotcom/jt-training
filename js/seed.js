@@ -42,6 +42,8 @@ export const settings = {
   timerVoice: true,
   timerVoiceName: '', // blank = pick the most natural voice automatically
   timerVolume: 0.6,
+  musicMode: true, // chimes and voice dip your music instead of pausing it
+  musicUrl: '', // workout playlist link, e.g. a Spotify playlist
   timerVibrate: true,
 };
 

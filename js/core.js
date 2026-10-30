@@ -104,6 +104,7 @@ export function openTimer({ title, segments, planId = null, onDoneHash = null, s
     <div class="t-ready">
       <div class="t-sum">${total ? `About ${Math.round(total / 60)} min${hasOpen ? ' plus open-ended steps' : ''}` : `${segs.length} steps`}</div>
       ${summary || `<ol class="t-list">${segs.slice(0, 40).map((s) => `<li><span>${U.esc(s.l)}${s.round ? ` (${s.round}/${s.rounds})` : ''}</span><b>${s.s ? U.fmtDuration(s.s) : 'tap Next'}</b></li>`).join('')}${segs.length > 40 ? '<li>...</li>' : ''}</ol>`}
+      ${state.settings.musicUrl ? '<button class="btn btn-block t-music" data-act="open-music">Open my workout playlist</button>' : ''}
       <p class="t-note">Keep this screen open - it stays awake and beeps at each change. If the phone locks, the timer catches up when you unlock it.</p>
       <button class="btn btn-xl btn-go" data-act="timer-start">Start</button>
     </div>`;
@@ -159,6 +160,11 @@ function renderRunning(v) {
   set('pause', v.paused ? 'Resume' : 'Pause');
 }
 
+on('open-music', () => {
+  const url = String(state.settings.musicUrl || '').trim();
+  if (/^https:\/\//i.test(url)) window.open(url, '_blank');
+  else toast('Paste a playlist link starting with https:// in Settings');
+});
 on('timer-start', () => {
   active.timer = new IntervalTimer(active.segs, { onTick: renderRunning });
   active.timer.start();

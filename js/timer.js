@@ -21,15 +21,40 @@ export function flatten(segments) {
 export const totalSec = (segs) => segs.reduce((a, s) => a + (s.s || 0), 0);
 
 let audio = null;
+const musicMode = () => state.settings.musicMode !== false;
+
+// How the app's sounds share the phone's audio:
+//  music mode   - 'transient': short sounds that dip (duck) your music, e.g. Spotify, then let it come back up.
+//                 Falls back to 'ambient' (plays over the music without dipping) where not supported.
+//  normal mode  - 'playback': plays through the silent switch, but pauses other music.
+export function setAudioMode() {
+  const s = navigator.audioSession;
+  if (!s) return;
+  const wanted = musicMode() ? ['transient', 'ambient'] : ['playback'];
+  for (const type of wanted) {
+    try { s.type = type; if (s.type === type) return; } catch (e) { /* try the next one */ }
+  }
+}
 function ctx() {
   if (!audio) {
-    // iPhone: 'playback' lets sounds play even when the ring/silent switch is on silent (iOS 17+).
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* older iOS */ }
+    setAudioMode();
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) audio = new AC();
   }
   if (audio && audio.state !== 'running') audio.resume().catch(() => {});
   return audio;
+}
+// In music mode the audio is switched off between cues so the phone lets your music come back up.
+let busyUntil = 0;
+let releaseTimer = null;
+function release(endTime) {
+  if (!audio || !musicMode()) return;
+  busyUntil = Math.max(busyUntil, endTime);
+  clearTimeout(releaseTimer);
+  const wait = Math.max(0, busyUntil - audio.currentTime) * 1000 + 700;
+  releaseTimer = setTimeout(() => {
+    if (audio && audio.state === 'running' && audio.currentTime >= busyUntil - 0.02) audio.suspend().catch(() => {});
+  }, wait);
 }
 
 // iPhone trick: a looping silent <audio> track puts the page in "media playback" mode, so
@@ -52,6 +77,7 @@ function silentTrack() {
   return silentEl;
 }
 export function holdAudio(on) {
+  if (on && musicMode()) return; // the silent track would pause your music
   try { if (on) silentTrack().play().catch(() => {}); else silentEl?.pause(); } catch (e) { /* ignore */ }
 }
 export function audioStatus() {
@@ -107,6 +133,7 @@ function chime(freq, when = 0, dur = 0.9, level = 1) {
     o.start(t0);
     o.stop(t0 + dur + 0.05);
   });
+  release(t0 + dur + 0.05);
 }
 // Countdown 3-2-1: a quiet, short tick.
 export function beepShort() { if (state.settings.timerSound) chime(660, 0, 0.25, 0.45); }
@@ -196,6 +223,7 @@ export async function speakParts(parts, force = false) {
   if (bufs.some((b) => !b)) return say(parts.join(' '), force);
   playing.forEach((src) => { try { src.stop(); } catch (e) { /* ignore */ } });
   playing = [];
+  if (a.state !== 'running') await a.resume().catch(() => {});
   const g = a.createGain();
   g.gain.value = Math.max(0.3, Math.min(1, (state.settings.timerVolume ?? 0.6) + 0.35));
   g.connect(a.destination);
@@ -208,6 +236,7 @@ export async function speakParts(parts, force = false) {
     playing.push(src);
     t += b.duration + 0.05;
   }
+  release(t);
 }
 
 // What to say when a step starts.
