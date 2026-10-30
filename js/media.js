@@ -67,3 +67,27 @@ export const ILL = {
   "_bike": ["stationary-bike", ["main"]],
   "_row": ["rowing-machine", ["start", "peak"]],
 };
+
+// Studio photos (img/ai/<key>.jpg), made for this app. Exercise name -> photo key.
+export const STUDIO = {
+  'Goblet squat': 'goblet', 'Dumbbell box squat to bench': 'boxsquat', 'Heels-elevated goblet squat': 'goblet',
+  'Dumbbell Romanian deadlift': 'rdl', 'Barbell Romanian deadlift (light)': 'bbrdl', 'Single-leg dumbbell RDL': 'slrdl',
+  'Reverse lunge': 'lunge', 'Split squat': 'splitsquat', 'Step-up onto bench': 'stepup',
+  'Glute bridge': 'bridge', 'Single-leg glute bridge': 'slbridge', 'Hip thrust off bench (dumbbell on hips)': 'hipthrust', 'Banded glute bridge': 'bridge',
+  'Single-leg calf raise': 'slcalf', 'Double-leg calf raise with dumbbells': 'calf', 'Bent-knee calf raise (soleus)': 'seatcalf',
+  'Dead bug': 'deadbug', 'Banded dead bug': 'deadbug', 'Hollow hold (20 - 30 sec)': 'hollow',
+  'Side plank': 'sideplank', 'Side plank from knees': 'sideplank', 'Suitcase carry': 'suitcase', 'Suitcase carry (one side)': 'suitcase',
+  'Push-up or dumbbell bench press': 'pushup', 'Dumbbell bench press': 'bench', 'Incline dumbbell press': 'incline', 'Feet-elevated push-up': 'declinepush',
+  'One-arm dumbbell row': 'row', 'Chest-supported row on incline bench': 'csrow', 'Inverted row under rack bar': 'invrow',
+  'Light dumbbell shoulder press': 'press', 'Half-kneeling single-arm press': 'hkpress', 'Landmine press (barbell in rack corner)': 'landmine',
+  'Band pull-apart or face pull': 'pullapart', 'Band face pull anchored to rack': 'facepull', 'Prone Y-T raise (1 - 3 kg dumbbells)': 'ytraise',
+  'Farmer carry': 'farmer', 'Farmer hold (40 sec, standing)': 'farmer',
+  'Bird dog': 'birddog', 'Banded bird dog': 'birddog', 'Quadruped hip extension': 'birddog',
+  'Pallof press or plank shoulder taps': 'pallof', 'Plank shoulder taps': 'taps', 'Half-kneeling band chop': 'chop',
+  'Calf stretch against wall': 'calfstretch', 'Kneeling hip flexor stretch': 'hipflexor', '90/90 hip switch': 'ninety', 'Hamstring stretch': 'hamstring',
+  'Couch stretch': 'couch', 'Cat-cow': 'catcow', 'Thread the needle': 'thread', 'Doorway chest stretch': 'doorway', "Child's pose": 'child',
+  'Open book thoracic rotation': 'openbook', 'Open book': 'openbook', 'Band shoulder dislocates': 'dislocates', 'Band dislocates': 'dislocates',
+  'Easy BikeErg': 'bike', 'Bodyweight squats': 'bwsquat', "World's greatest stretch": 'wgs', 'Glute bridges': 'bridge', 'Calf raises': 'calf',
+  'Leg swings': 'legswing', 'Easy row': 'rower', 'Band pull-aparts': 'pullapart', 'Inchworms': 'inchworm', 'Easy push-ups': 'pushup',
+  _run: 'run', _walk: 'run', _bike: 'bike', _row: 'rower',
+};

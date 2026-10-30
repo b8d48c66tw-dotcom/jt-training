@@ -2,8 +2,7 @@
 import { state, peekDay } from './store.js';
 import * as U from './util.js';
 import { flatten, totalSec } from './timer.js';
-import { ILL } from './media.js';
-import { FIG } from './figure.js';
+import { ILL, STUDIO } from './media.js';
 
 export const CORE = ['strengthA', 'tueRun', 'strengthB', 'sunRun'];
 export const isCore = (k) => CORE.includes(k);
@@ -355,31 +354,32 @@ export function mobilitySegments(drills) {
 }
 
 // ---- exercise photos -------------------------------------------------------------------------
-// imgFor returns a key: "fig:<motion>" for an animated figure, "ill:<name>" for an illustration, "ex:<id>" for a photo.
-// imgSrc turns illustration and photo keys into a file. Figures are the default (settings.visuals).
-const mode = () => state.settings.visuals || 'fig';
+// imgFor returns a key: "ai:<key>" for a studio photo, "ill:<name>" for an illustration, "ex:<id>" for a gym photo.
+// imgSrc turns a key into a file. Studio photos are the default (settings.visuals).
+const mode = () => (['ill', 'photos'].includes(state.settings.visuals) ? state.settings.visuals : 'studio');
 const useIll = () => mode() === 'ill';
 export function imgFor(name) {
   if (!name) return null;
-  if (mode() === 'fig' && FIG[name]) return `fig:${FIG[name]}`;
+  if (mode() === 'studio' && STUDIO[name]) return `ai:${STUDIO[name]}`;
   if (useIll() && ILL[name]) return `ill:${name}`;
   const id = state.program.exerciseImages?.[name];
   return id ? `ex:${id}` : null;
 }
 export const isIll = (key) => !!key && key.startsWith('ill:');
-export const isFig = (key) => !!key && key.startsWith('fig:');
+export const isStudio = (key) => !!key && key.startsWith('ai:');
 // Frame 0 is the start position, frame 1 the end position (illustrations with one pose use it for both).
 export function imgSrc(key, frame = 1) {
   if (!key) return '';
+  if (key.startsWith('ai:')) return `img/ai/${key.slice(3)}.jpg`;
   if (isIll(key)) {
     const [id, frames] = ILL[key.slice(4)];
     return `img/ill/${id}-${frames[Math.min(frame, frames.length - 1)]}.webp`;
   }
   return `img/ex/${key.slice(3)}-${frame}.jpg`;
 }
-export const isStill = (key) => isIll(key) && ILL[key.slice(4)][1].length === 1;
-// Figure or illustration for a whole session type (run, bike, row); photos mode has none.
-export const typeImg = (t) => (mode() === 'fig' && FIG[`_${t}`] ? `fig:${FIG[`_${t}`]}` : useIll() && ILL[`_${t}`] ? `ill:_${t}` : null);
+export const isStill = (key) => !!key && (key.startsWith('ai:') || (isIll(key) && ILL[key.slice(4)][1].length === 1));
+// Studio photo or illustration for a whole session type (run, bike, row); photos mode has none.
+export const typeImg = (t) => (mode() === 'studio' && STUDIO[`_${t}`] ? `ai:${STUDIO[`_${t}`]}` : useIll() && ILL[`_${t}`] ? `ill:_${t}` : null);
 
 // ---- guided strength sessions -------------------------------------------------------------------
 // Weight to use for an exercise: last time's weight, or the next one up if "ready to go up".

@@ -1,8 +1,8 @@
 // Offline cache. Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'jt-training-v18';
+const VERSION = 'jt-training-v19';
 const FILES = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
-  './js/app.js', './js/core.js', './js/store.js', './js/seed.js', './js/plan.js', './js/util.js', './js/timer.js', './js/charts.js', './js/visual.js', './js/media.js', './js/figure.js',
+  './js/app.js', './js/core.js', './js/store.js', './js/seed.js', './js/plan.js', './js/util.js', './js/timer.js', './js/charts.js', './js/visual.js', './js/media.js',
   './js/screens/today.js', './js/screens/week.js', './js/screens/session.js', './js/screens/log.js',
   './js/screens/progress.js', './js/screens/food.js', './js/screens/settings.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
@@ -18,6 +18,9 @@ self.addEventListener('install', (e) => {
         .then(() => fetch('./img/ill/list.json'))
         .then((r) => r.json())
         .then((list) => c.addAll(list.map((f) => `./img/ill/${f}`)))
+        .then(() => fetch('./img/ai/list.json'))
+        .then((r) => r.json())
+        .then((list) => c.addAll(list.map((f) => `./img/ai/${f}`)))
         .then(() => fetch('./voice/list.json'))
         .then((r) => r.json())
         .then((keys) => c.addAll(['./voice/list.json', ...keys.map((k) => `./voice/${k}.mp3`)])))

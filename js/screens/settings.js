@@ -189,7 +189,7 @@ export function renderSettings() {
   html += `<div class="sec-h"><span>Display</span></div>
   <div class="seg seg-theme">${[['auto', 'Night Calm'], ['light', 'Light']].map(([v, l]) => `<button class="${(s.theme === v || (v === 'auto' && s.theme === 'dark')) ? 'on' : ''}" data-act="theme-set" data-v="${v}">${l}</button>`).join('')}</div>
   <div class="seg-label">Exercise pictures</div>
-  <div class="seg seg-theme">${[['fig', 'Animated'], ['ill', 'Illustrations'], ['photos', 'Photos']].map(([v, l]) => `<button class="${(s.visuals || 'fig') === v ? 'on' : ''}" data-act="visuals-set" data-v="${v}">${l}</button>`).join('')}</div>`;
+  <div class="seg seg-theme">${[['studio', 'Studio'], ['ill', 'Illustrations'], ['photos', 'Gym photos']].map(([v, l]) => `<button class="${(['ill', 'photos'].includes(s.visuals) ? s.visuals : 'studio') === v ? 'on' : ''}" data-act="visuals-set" data-v="${v}">${l}</button>`).join('')}</div>`;
 
   // Help
   html += `<div class="sec-h"><span>Help</span><small>Tap to open</small></div>`;
