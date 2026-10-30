@@ -182,7 +182,7 @@ export function say(text, force = false) {
 }
 
 // ---- recorded voice clips -------------------------------------------------------------------------
-// Clips live in voice/<key>.wav (key = clipKey of the phrase). Anything without a clip falls back
+// Clips live in voice/<key>.mp3 (key = clipKey of the phrase), recorded with a neural voice (Ava). Anything without a clip falls back
 // to the device's speech voice.
 export const clipKey = (t) => String(t).replace(/ - tap Next when done/i, '').replace(/\s*\([^)]*\)/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -198,11 +198,25 @@ async function loadClipList() {
   }
   return clipList;
 }
+// Neural voice clips carry a little silence at each end; cut it so countdowns land on the beat.
+function trimSilence(a, b) {
+  const d = b.getChannelData(0);
+  const thr = 0.012, pad = Math.round(b.sampleRate * 0.02);
+  let s = 0, e = d.length - 1;
+  while (s < e && Math.abs(d[s]) < thr) s++;
+  while (e > s && Math.abs(d[e]) < thr) e--;
+  s = Math.max(0, s - pad); e = Math.min(d.length - 1, e + pad);
+  if (e - s < 64) return b;
+  const out = a.createBuffer(b.numberOfChannels, e - s + 1, b.sampleRate);
+  for (let c = 0; c < b.numberOfChannels; c++) out.copyToChannel(b.getChannelData(c).subarray(s, e + 1), c);
+  return out;
+}
 function clipBuffer(k) {
   if (!clipBuffers.has(k)) {
     const a = ctx();
-    clipBuffers.set(k, fetch(`voice/${k}.wav`).then((r) => r.arrayBuffer())
-      .then((b) => new Promise((res, rej) => a.decodeAudioData(b, res, rej))).catch(() => { clipBuffers.delete(k); return null; }));
+    clipBuffers.set(k, fetch(`voice/${k}.mp3`).then((r) => r.arrayBuffer())
+      .then((b) => new Promise((res, rej) => a.decodeAudioData(b, res, rej))).then((b) => trimSilence(a, b))
+      .catch(() => { clipBuffers.delete(k); return null; }));
   }
   return clipBuffers.get(k);
 }
