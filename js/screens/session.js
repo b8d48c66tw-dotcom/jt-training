@@ -3,7 +3,7 @@ import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, card, scale, field, formData, commit, toast, go, openTimer, flip } from '../core.js';
-import { heroBg, pic } from '../visual.js';
+import { heroBg } from '../visual.js';
 import { primaryAction, movePanel } from './today.js';
 
 const RUN_KINDS = { easy: 'Easy', runwalk: 'Run/walk', long: 'Long easy', tempo: 'Tempo or intervals', race: 'Race' };
@@ -295,9 +295,12 @@ on('del-log', (el) => {
 });
 
 // ---- session preview ------------------------------------------------------------------------------
-const row = (img, title, sub) => `<div class="li">${pic(img) || '<div class="li-th"></div>'}<div class="li-m"><b>${title}</b>${sub ? `<div class="sb">${sub}</div>` : ''}</div></div>`;
-const secHead = (name, small) => `<div class="sec-h"><span>${U.esc(name)}</span>${small ? `<small>${U.esc(small)}</small>` : ''}</div>`;
 const mmss = (sec) => (sec ? U.fmtDuration(sec) : '');
+// Plan timeline (same look as the start screen): coloured stage dots and photo rows on one rail.
+const stage = (k, name, meta) => `<li class="sp-stage k-${k}"><i></i><span><b>${U.esc(name)}</b></span>${meta ? `<small>${U.esc(meta)}</small>` : ''}</li>`;
+const tl = (img, title, sub, { k = 'work', end = '' } = {}) => `<li class="k-${k}">${img ? `<img src="${P.imgSrc(img, 1)}" alt="" loading="lazy">` : '<i></i>'}<span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>${end}</li>`;
+const len = (sec) => (sec ? `<em class="t">${mmss(sec)}</em>` : '');
+const coach = (kick, text) => `<div class="sp-coach"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M12 8v5"/><path d="M12 16.5v.01"/></svg><div><small>${kick}</small><p>${text}</p></div></div>`;
 
 function previewSections(item, info) {
   if (info.type === 'strength') {
@@ -306,30 +309,40 @@ function previewSections(item, info) {
     const best = P.guidedOptions(item.key, n, item.date).best;
     const warm = info.def.warmupSteps || [];
     const warmSec = warm.reduce((a, x) => a + x.s, 0);
-    let h = secHead('Warm-up', `${Math.round(warmSec / 60)} min`) + warm.map((x) => row(P.imgFor(x.l), U.esc(x.l), mmss(x.s))).join('');
     const exs = info.def.exercises.map((id) => P.exerciseById(id)).filter(Boolean).map((e) => P.exerciseForWeek(e, n));
-    h += secHead('Circuit', `${best.rounds} rounds - rest ${w.roundRest ?? state.settings.timing.roundRest} sec`);
+    let h = '<div class="sp-kick">The plan</div><ol class="sp-plan">';
+    h += stage('warm', 'Warm-up', `${Math.round(warmSec / 60)} min`) + warm.map((x) => tl(P.imgFor(x.l), U.esc(x.l), '', { k: 'warm', end: len(x.s) })).join('');
+    h += stage('work', 'Circuit', `${best.rounds} rounds - rest ${w.roundRest ?? state.settings.timing.roundRest} sec`);
     h += exs.map((ex) => {
       const kg = ex.load ? P.suggestedWeight(ex, ex.name, item.date) : null;
-      return row(P.imgFor(ex.name), `<span class="x">${best.rounds}x</span> ${U.esc(ex.name)}`, `${U.esc(P.fmtTarget(ex))}${kg ? ` - ${kg} kg` : ''}`);
+      return tl(P.imgFor(ex.name), U.esc(ex.name), U.esc(P.fmtTarget(ex)), { end: kg ? `<em class="kg">${kg} kg</em>` : '' });
     }).join('');
-    h += secHead('Finisher', '') + row(null, U.esc(info.finisher.label), '');
-    h += secHead('Cool-down', `${Math.round(state.settings.timing.cooldown / 60)} min`) + row(P.imgFor('Kneeling hip flexor stretch'), 'Easy stretch', 'Hip flexors, hamstrings, chest');
-    if (w.effort) h += `<div class="note">${U.esc(w.effort)}.</div>`;
+    h += stage('hard', 'Finisher', '') + tl(P.typeImg(/row/i.test(info.finisher.label) ? 'row' : 'bike'), U.esc(info.finisher.label), 'Hard but controlled', { k: 'hard' });
+    h += stage('cool', 'Cool-down', `${Math.round(state.settings.timing.cooldown / 60)} min`) + tl(P.imgFor('Kneeling hip flexor stretch'), 'Easy stretch', 'Hip flexors, hamstrings, chest', { k: 'cool' });
+    h += '</ol>';
+    if (w.effort) h += coach(`Week ${n} effort`, `${U.esc(w.effort)}.`);
     return h;
   }
   if (info.type === 'run') {
     const r = info.run;
     const parts = r.segments.map((sg) => {
-      if (sg.x) return row(null, `<span class="x">${sg.x}x</span> ${sg.items.map((it) => `${U.esc(it.l)} ${mmss(it.s)}`).join(' / ')}`, sg.dropLast ? 'Last recovery skipped' : '');
-      return row(null, U.esc(sg.l.replace(/ - tap Next when done/i, '')), sg.s ? mmss(sg.s) : 'Tap Next when you get there');
+      if (sg.x) return tl(null, `<span class="x">${sg.x}x</span> ${sg.items.map((it) => `${U.esc(it.l)} ${mmss(it.s)}`).join(' / ')}`, sg.dropLast ? 'Last recovery skipped' : '', { k: 'run' });
+      return tl(null, U.esc(sg.l.replace(/ - tap Next when done/i, '')), sg.s ? '' : 'Tap Next when you get there', { k: sg.k || 'run', end: len(sg.s) });
     }).join('');
     const s2 = state.settings;
-    return secHead('The run', `${r.minutes} min`) + parts
-      + `<div class="note">Easy = heart rate under ${s2.hrCapLow} - ${s2.hrCapHigh} (about ${s2.easyPace}). Walking to stay under it is fine.${r.kind === 'tempo' ? ` Tempo = comfortably hard, about ${s2.tempoPace}.` : ''}</div>`;
+    return `<div class="sp-kick">The plan</div><ol class="sp-plan">${stage('easy', 'The run', `${r.minutes} min`)}${parts}</ol>`
+      + coach('Keep it easy', `Heart rate under ${s2.hrCapLow} - ${s2.hrCapHigh} (about ${s2.easyPace}). Walking to stay under it is fine.${r.kind === 'tempo' ? ` Tempo = comfortably hard, about ${s2.tempoPace}.` : ''}`);
   }
   return '';
 }
+const AI = {
+  move: '<path d="M7 7h12l-3-3"/><path d="M17 17H5l3 3"/>',
+  log: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+  hist: '<path d="M4 12a8 8 0 1 0 2.3-5.6L4 8.7"/><path d="M4 4v4.7h4.7"/><path d="M12 8v4l3 2"/>',
+  prog: '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  skip: '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>',
+};
+const ai = (k) => `<i><svg viewBox="0 0 24 24" aria-hidden="true">${AI[k]}</svg></i>`;
 
 export function renderSession(planId) {
   const item = P.findItem(planId);
@@ -342,22 +355,27 @@ export function renderSession(planId) {
   const w = P.week(item.week) || {};
   const canMove = P.isCore(item.key) && status !== 'done' && !item.extra;
   const chips = [
-    item.extra ? '<span class="tag tag-t">Trial</span>' : `<span class="tag tag-t">Week ${item.week}</span>`,
+    item.extra ? '<span class="tag tag-t">Trial</span>' : '',
     status === 'done' ? '<span class="tag tag-good">&#10003; Complete</span>' : status === 'missed' ? '<span class="tag tag-bad">Missed</span>' : '',
-    info.type === 'strength' ? `<span class="tag">Rest ${w.roundRest ?? state.settings.timing.roundRest} sec</span>` : '',
     item.movedFrom ? `<span class="tag">From ${U.dayShort(item.movedFrom)}</span>` : '',
   ].join('');
-  const mins = info.type === 'strength' ? P.guidedOptions(item.key, item.week, item.date).best.min : info.minutes;
+  const best = info.type === 'strength' ? P.guidedOptions(item.key, item.week, item.date).best : null;
+  const mins = best ? best.min : info.minutes;
   const gear = info.type === 'strength' ? (item.key === 'strengthA' ? 'Dumbbells - Bench - BikeErg' : 'Dumbbells - Bench - Bands - RowErg') : info.subtitle;
-  let heading = `<div class="sp-hero s-${info.type}">${heroBg(item)}<div class="hb-shade"></div>
-    <div class="sp-in"><div class="tags">${chips}</div>
-      <div class="kick">${U.dayName(item.date)} ${U.fmtDate(item.date)}${mins ? ` - ${mins} min` : ''}</div>
-      <div class="disp sp-title">${U.esc(info.title)}</div><div class="sp-sub">${U.esc(gear)}</div></div></div>`;
-  heading += `<div class="acts">
-    ${canMove ? `<button data-act="move-open" data-id="${item.id}"><i>&#8644;</i>Move</button>` : ''}
-    <button data-act="jump" data-to="log-form"><i>&#9998;</i>${act ? 'Edit log' : 'Log only'}</button>
-    ${info.type === 'strength' ? '<a href="#/journal"><i>&#9776;</i>History</a>' : '<a href="#/progress"><i>&#8599;</i>Progress</a>'}
-    ${canMove && status !== 'skipped' ? `<button data-act="skip" data-id="${item.id}"><i>&#8856;</i>Skip</button>` : ''}
+  const stats = best
+    ? [[mins, 'min'], [best.rounds, 'rounds'], [info.def.exercises.length, 'exercises'], [w.roundRest ?? state.settings.timing.roundRest, 'sec rest']]
+    : info.type === 'run' ? [[mins, 'min'], [state.settings.hrCapHigh, 'bpm cap']] : mins ? [[mins, 'min']] : [];
+  let heading = `<div class="sp-hero sp2 s-${info.type}">${heroBg(item)}<div class="hb-shade"></div>
+    <div class="sp-in">${chips ? `<div class="tags">${chips}</div>` : ''}
+      <div class="sp-when"><b>${item.extra ? 'Trial' : `Week ${item.week}`}</b>${U.dayName(item.date)} ${U.fmtDate(item.date)}</div>
+      <div class="disp sp-title">${U.esc(info.title)}</div>
+      ${gear ? `<div class="sp-gear">${gear.split(' - ').map((g) => `<span>${U.esc(g)}</span>`).join('')}</div>` : ''}</div></div>`;
+  if (stats.length) heading += `<div class="sp-stats">${stats.map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('')}</div>`;
+  heading += `<div class="acts sp-acts">
+    ${canMove ? `<button data-act="move-open" data-id="${item.id}">${ai('move')}Move</button>` : ''}
+    <button data-act="jump" data-to="log-form">${ai('log')}${act ? 'Edit log' : 'Log only'}</button>
+    ${info.type === 'strength' ? `<a href="#/journal">${ai('hist')}History</a>` : `<a href="#/progress">${ai('prog')}Progress</a>`}
+    ${canMove && status !== 'skipped' ? `<button data-act="skip" data-id="${item.id}">${ai('skip')}Skip</button>` : ''}
   </div>`;
   heading += movePanel(item);
   if (item.extra?.note) heading += `<div class="note">${U.esc(item.extra.note)}</div>`;
@@ -368,7 +386,7 @@ export function renderSession(planId) {
       const { opts, best } = P.guidedOptions(item.key, item.week, item.date);
       others = opts.filter((o) => o.rounds !== best.rounds || best.compress).map((o) => `<button class="tag tag-btn" data-act="guided" data-key="${item.key}" data-n="${item.week}" data-date="${item.date}" data-r="${o.rounds}" data-c="" data-id="${item.id}" data-hash="#/session/${item.id}">${o.rounds} rounds - ${o.min} min</button>`).join('');
     }
-    if (others) heading += `<div class="cta-others"><span class="muted small">Other lengths:</span>${others}</div>`;
+    if (others) heading += `<div class="cta-others sp-lengths"><span>Other lengths</span>${others}</div>`;
     heading += `<div class="cta-dock">${primaryAction(item, status, 'cta cta-block')}</div>`;
   }
   if (type === 'floating') {
