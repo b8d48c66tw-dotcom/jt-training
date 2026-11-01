@@ -126,3 +126,12 @@ export function habits(iso) {
   const d = peekDay(iso);
   return { mobility: !!d?.mobility, food: P.nutritionScore(iso), weight: d?.weight ?? null };
 }
+
+// Banner at the top of a page: kicker, big title, a line of detail and optional stat tiles.
+// stats: [[value, label]]; side: optional HTML on the right (a ring or avatar).
+export function pageHero({ kick = '', title, sub = '', stats = [], side = '', cls = '' }) {
+  return `<section class="pg-hero ${cls}">
+    <div class="pg-top"><div class="pg-txt">${kick ? `<div class="pg-kick">${kick}</div>` : ''}<div class="disp pg-title">${title}</div>${sub ? `<div class="pg-sub">${sub}</div>` : ''}</div>${side}</div>
+    ${stats.length ? `<div class="pg-stats">${stats.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
+  </section>`;
+}

@@ -3,7 +3,7 @@ import { state, saveState } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, card, stat, rerender, rings } from '../core.js';
-import { weekStreak, graphic, pic } from '../visual.js';
+import { weekStreak, graphic, pic, pageHero } from '../visual.js';
 import { lineChart, barChart } from '../charts.js';
 
 const legend = (items) => `<div class="legend">${items.map(([cls, label]) => `<span><i class="sw ${cls}"></i>${U.esc(label)}</span>`).join('')}</div>`;
@@ -51,7 +51,7 @@ function weightSection() {
     const diff = proj.value - s.goalWeight;
     msg = `<p class="${diff <= 0.3 ? 'good' : 'warn-text'}">${diff <= 0.3 ? 'On track for' : `Trending ${U.round1(diff)} kg above`} ${s.goalWeight} kg on ${U.fmtDate(s.goalDate)}.</p>`;
   }
-  return card(`<h2>Bodyweight</h2>${chart}${legend([['dot-s1', 'Daily weigh-in'], ['ln-s1', '7-day average'], ['ln-muted dash', `Target ${U.round1(((s.startWeight - s.goalWeight) / U.diffDays(s.startDate, s.goalDate)) * 7)} kg/wk`], ['ln-s1 dash', 'Projection']])}${msg}`);
+  return card(`${chHead('weight', 'Bodyweight')}${chart}${legend([['dot-s1', 'Daily weigh-in'], ['ln-s1', '7-day average'], ['ln-muted dash', `Target ${U.round1(((s.startWeight - s.goalWeight) / U.diffDays(s.startDate, s.goalDate)) * 7)} kg/wk`], ['ln-s1 dash', 'Projection']])}${msg}`);
 }
 
 on('km-range', (el) => { ui.kmRange = el.dataset.r; rerender(); });
@@ -71,7 +71,7 @@ function kmSection() {
       bars.push({ label: U.fmtDate(m), value: U.round1(km), tip: `Week of ${U.fmtDate(m)}: ${U.round1(km)} km` });
     }
   }
-  return card(`<div class="card-head"><h2>Weekly km</h2><div class="chips sm">
+  return card(`<div class="td-ch pg-ch"><span class="td-ic">${CH.km}</span><h2>Weekly km</h2><div class="chips sm">
       <button class="chip ${range === 'program' ? 'on' : ''}" data-act="km-range" data-r="program">Program</button>
       <button class="chip ${range === 'year' ? 'on' : ''}" data-act="km-range" data-r="year">2026</button></div></div>
     ${barChart({ bars, yFmt: (v) => v, label: 'Kilometres run per week' })}`);
@@ -96,14 +96,14 @@ function paceSection() {
     xMin: 0, xMax: U.diffDays(x0, '2026-12-31'), invertY: true, yFmt: (v) => U.fmtPace(v).replace('/km', ''), xLabels,
     label: 'Average pace per run, easy and tempo, faster is higher', empty: 'No runs yet',
   });
-  return card(`<h2>Run pace</h2><p class="muted">Faster is higher. Easy includes run/walk and long runs.</p>${chart}${legend([['dot-s1', 'Easy runs'], ['dot-s2', 'Tempo and intervals']])}`);
+  return card(`${chHead('pace', 'Run pace')}<p class="muted">Faster is higher. Easy includes run/walk and long runs.</p>${chart}${legend([['dot-s1', 'Easy runs'], ['dot-s2', 'Tempo and intervals']])}`);
 }
 
 on('str-ex', (el) => { ui.strEx = el.value; rerender(); });
 function strengthSection() {
   const names = new Set();
   for (const a of state.activities) if (a.type === 'strength') for (const e of a.exercises || []) if (e.reps?.length) names.add(e.name);
-  if (!names.size) return card('<h2>Strength progression</h2><p class="muted">Log a strength session to see progress per exercise.</p>');
+  if (!names.size) return card(`${chHead('str', 'Strength progression')}<p class="muted">Log a strength session to see progress per exercise.</p>`);
   const list = [...names];
   const pick = list.includes(ui.strEx) ? ui.strEx : list[0];
   const h = P.exerciseHistory(pick);
@@ -121,7 +121,7 @@ function strengthSection() {
     const ready = ex ? P.readyToGoUp(ex, name) : null;
     return `<li><b>${U.esc(name)}</b><div class="muted">${l.weight ? `${l.weight} kg x ` : ''}${l.reps.join(', ')} (${U.fmtDate(l.date)})</div>${ready ? `<div class="badge-up">&#9650; ${U.esc(ready.suggestion)}</div>` : ''}</li>`;
   }).join('');
-  return card(`<h2>Strength progression</h2>
+  return card(`${chHead('str', 'Strength progression')}
     <label class="field"><span class="lbl">Exercise</span><select data-change="str-ex">${list.map((n) => `<option ${n === pick ? 'selected' : ''}>${U.esc(n)}</option>`).join('')}</select></label>
     <p class="muted">${useWeight ? 'Weight (kg) per session' : 'Total reps or seconds per session'}</p>${chart}
     <h3>Latest per exercise</h3><ul class="plain-list">${rows}</ul>`);
@@ -159,17 +159,29 @@ function goalHero() {
   const pct = Math.min(1, lost / need);
   const proj = P.projection(list);
   const daysLeft = Math.max(0, U.diffDays(U.today(), s.goalDate));
-  return `<div class="goal-hero">
-    <div class="gh-ring">${rings([{ pct, color: 'var(--accent)' }], `${Math.round(pct * 100)}%`, 'of goal', 150)}</div>
-    <div class="gh-m">
-      <div class="kick">${s.startWeight} kg to ${s.goalWeight} kg</div>
-      <div class="gh-big">${avg != null ? U.round1(avg).toFixed(1) : '-'}<small>kg</small></div>
-      <div class="gh-sub">${avg != null ? `${U.round1(lost).toFixed(1)} kg down - ${U.round1(Math.max(0, avg - s.goalWeight)).toFixed(1)} to go` : 'Log a morning weigh-in to start'}</div>
-      <div class="gh-tags"><span class="tag tag-t">${daysLeft} days left</span>${proj ? `<span class="tag ${proj.value <= s.goalWeight + 0.3 ? 'tag-good' : 'tag-warn'}">On ${U.fmtDate(s.goalDate)}: ${U.round1(proj.value).toFixed(1)}</span>` : ''}</div>
-    </div>
-  </div>`;
+  const cw = P.currentWeek();
+  return pageHero({
+    kick: `Week ${cw} of ${P.weekCount()} - ${U.esc(P.week(cw).phase)}`, title: 'Progress', cls: 'pg-prog',
+    sub: avg != null ? `${U.round1(lost).toFixed(1)} kg down - ${U.round1(Math.max(0, avg - s.goalWeight)).toFixed(1)} to go` : `${s.startWeight} kg to ${s.goalWeight} kg by ${U.fmtDate(s.goalDate)}`,
+    side: `<div class="pg-ring">${rings([{ pct, color: '#5eead4' }], `${Math.round(pct * 100)}%`, '', 104)}<small>of goal</small></div>`,
+    stats: [[avg != null ? U.round1(avg).toFixed(1) : '-', '7-day avg kg'], [daysLeft, 'days left'], [proj ? U.round1(proj.value).toFixed(1) : '-', `kg on ${U.fmtDate(s.goalDate)}`]],
+  });
 }
 
+const sv = (p) => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const STK = {
+  teal: sv('<path d="M5 12.5 10 17l9-10"/>'),
+  orange: sv('<path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 .5 2 1.5 3 3 3 0-3-1-5 0-8z"/>'),
+  blue: sv('<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8.5 9a5 5 0 0 1 7 0l-2 2.5h-3z"/>'),
+  violet: sv('<circle cx="12" cy="4.5" r="2"/><path d="M5 9l7 1 7-1M12 10v5l-4 6M12 15l4 6"/>'),
+};
+const CH = {
+  weight: sv('<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
+  km: sv('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  pace: sv('<circle cx="12" cy="13" r="8"/><path d="M12 13l4-3M10 2h4"/>'),
+  str: sv('<path d="M4 10v4M7 7v10M17 7v10M20 10v4M7 12h10"/>'),
+};
+const chHead = (ic, title, right = '') => `<div class="td-ch pg-ch"><span class="td-ic">${CH[ic]}</span><h2>${title}</h2>${right}</div>`;
 function streakTiles() {
   const st = P.streaks();
   const t = U.today();
@@ -184,7 +196,7 @@ function streakTiles() {
       }
     }
   }
-  const tile = (v, l, sub, tone) => `<div class="stk-tile t-${tone}"><b>${v}</b><span>${l}</span><small>${sub}</small></div>`;
+  const tile = (v, l, sub, tone) => `<div class="stk-tile t-${tone}"><span class="stk-ic">${STK[tone]}</span><b>${v}</b><span>${l}</span><small>${sub}</small></div>`;
   return `<div class="stk-grid">
     ${tile(`${done}/${due}`, 'Sessions', 'done so far', 'teal')}
     ${tile(weekStreak(), 'Week streak', 'weeks training', 'orange')}
@@ -206,18 +218,18 @@ function journalPreview() {
 export function renderProgress() {
   const s = state.settings;
   const cw = P.currentWeek();
-  let html = `<div class="page-head"><div class="disp disp-lg">Progress</div><div class="muted">Week ${cw} of ${P.weekCount()} - ${U.esc(P.week(cw).phase)}</div></div>`;
-  html += goalHero() + streakTiles() + journalPreview();
+  let html = goalHero() + streakTiles() + journalPreview();
   html += `<div class="prog-page">${weightSection()}${kmSection()}${paceSection()}${strengthSection()}</div>`;
   html += `<div class="sec-h"><span>Weekly check-ins</span><small>Review each week</small></div>
     <div class="ci-row">${Array.from({ length: P.weekCount() }, (_, i) => {
       const n = i + 1;
       const future = n > cw;
       const hasNotes = !!state.checkins[n]?.notes;
-      return future ? `<span class="ci ci-future"><b>W${n}</b><small>${U.esc(P.week(n).phase)}</small></span>`
-        : `<a class="ci ${n === cw ? 'ci-now' : ''}" href="#/checkin/${n}"><b>W${n}</b><small>${hasNotes ? '&#10003; Notes' : n === cw ? 'This week' : 'Review'}</small></a>`;
+      return future ? `<span class="ci ci-future ${'ph-' + P.week(n).phase.toLowerCase().replace(/\s+/g, '')}"><b>W${n}</b><small>${U.esc(P.week(n).phase)}</small></span>`
+        : `<a class="ci ${n === cw ? 'ci-now' : ''} ${'ph-' + P.week(n).phase.toLowerCase().replace(/\s+/g, '')}" href="#/checkin/${n}"><b>W${n}</b><small>${hasNotes ? '&#10003; Notes' : n === cw ? 'This week' : 'Review'}</small></a>`;
     }).join('')}</div>`;
-  html += `<div class="hero2 hero2-goal">${graphic('run', 'hb-graphic')}<div class="hb-shade"></div><div class="hero2-in">
+  const runImg = P.typeImg('run');
+  html += `<div class="hero2 hero2-goal">${runImg ? `<div class="hb-photo${P.isStudio(runImg) ? ' hb-studio' : ''}" style="background-image:url('${P.imgSrc(runImg, 1)}')"></div>` : graphic('run', 'hb-graphic')}<div class="hb-shade"></div><div class="hero2-in">
       <div class="kick">The bigger goal</div>
       <div class="disp hero2-title">Half marathon<br>sub 6:00/km</div>
       <div class="hero2-sub">${U.esc(s.longTermGoal)}. Baseline: Newcastle Half, 19 Apr 2026 - 2:37:50 (7:23/km) with walk breaks. Sub-6:00/km is about 2:06:36.</div>
@@ -238,23 +250,36 @@ export function renderCheckin(nParam) {
   const msgs = P.coaching(n);
   const last = state.meta.lastBackup;
   const backupAge = last ? U.diffDays(last.slice(0, 10), U.today()) : null;
-  let html = `<div class="day-nav">
-    ${n > 1 ? `<a class="btn" href="#/checkin/${n - 1}" aria-label="Previous week">&#8249;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
-    <div class="day-title"><div class="h1">Week ${n} check-in</div><div class="muted">${U.fmtDate(s.days[0])} - ${U.fmtDate(s.days[6])} - ${U.esc(P.week(n).phase)}</div></div>
-    ${n < P.weekCount() ? `<a class="btn" href="#/checkin/${n + 1}" aria-label="Next week">&#8250;</a>` : '<span class="btn btn-ghost" aria-hidden="true"></span>'}
+  const w = P.week(n);
+  const total = P.weekCount();
+  const ph = `ph-${w.phase.toLowerCase().replace(/\s+/g, '')}`;
+  let html = `<section class="pw-hero ${ph}">
+    <div class="pw-nav">
+      ${n > 1 ? `<a class="pw-arrow" href="#/checkin/${n - 1}" aria-label="Previous week">&#8249;</a>` : '<span class="pw-arrow ghost"></span>'}
+      <span class="pw-wk">Week ${n} check-in</span>
+      ${n < total ? `<a class="pw-arrow" href="#/checkin/${n + 1}" aria-label="Next week">&#8250;</a>` : '<span class="pw-arrow ghost"></span>'}
+    </div>
+    <div class="disp pw-phase">${s.avg != null ? `${U.round1(s.avg).toFixed(1)}<small> kg</small>` : U.esc(w.phase)}</div>
+    <div class="pw-dates">${s.avg != null ? `7-day average - ${U.esc(w.phase)}, ` : ''}${U.fmtDate(s.days[0])} - ${U.fmtDate(s.days[6])}</div>
+    <div class="ci-wts">
+      <div><b>${s.change != null ? `${s.change > 0 ? '+' : ''}${U.round1(s.change).toFixed(1)}` : '-'}</b><span>${n === 1 ? 'vs start' : 'vs last week'}</span></div>
+      <div><b>${U.round1(P.targetAt(s.days[6])).toFixed(1)}</b><span>target by Sun</span></div>
+    </div>
+  </section>`;
+  const tile = (label, value, pct, cls) => `<div class="pw-stat ${cls}"><b>${value}</b><span>${label}</span><i><em style="width:${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%"></em></i></div>`;
+  html += `<div class="pw-stats">
+    ${tile('Sessions', `${s.done}/${s.planned}`, s.planned ? s.done / s.planned : 0, 'c-teal')}
+    ${tile('Km run', U.round1(s.km).toFixed(1), 0, 'c-blue no-bar')}
+    ${tile('Mobility', `${s.mobilityDays}/7`, s.mobilityDays / 7, 'c-violet')}
+    ${tile('Food', `${s.nutritionPct}%`, s.nutritionPct / 100, 'c-sky')}
   </div>`;
-  html += `<div class="stats stats-3">
-    ${stat('7-day avg', s.avg != null ? U.round1(s.avg).toFixed(1) : '-', 'kg')}
-    ${stat(n === 1 ? 'vs start' : 'vs last week', s.change != null ? `${s.change > 0 ? '+' : ''}${U.round1(s.change).toFixed(1)}` : '-', 'kg')}
-    ${stat('Target', U.round1(P.targetAt(s.days[6])).toFixed(1), 'kg by Sunday')}
-    ${stat('Sessions', `${s.done}/${s.planned}`, 'done')}
-    ${stat('Km run', U.round1(s.km).toFixed(1), 'km')}
-    ${stat('Mobility', `${s.mobilityDays}/7`, 'days')}
-    ${stat('Nutrition', `${s.nutritionPct}%`, 'adherence')}
-  </div>`;
-  html += card(`<h2>Coaching</h2>${msgs.map((m) => `<div class="coach coach-${m.tone}">${U.esc(m.text)}</div>`).join('')}`);
-  html += card(`<h2>Notes</h2><textarea rows="5" data-input="checkin-notes" data-n="${n}" placeholder="How did the week go? Energy, sleep, hunger, niggles, wins.">${U.esc(state.checkins[n]?.notes || '')}</textarea><p class="muted">Saves as you type.</p>`);
-  html += card(`<h2>Backup</h2><p>${last ? `Last backup ${backupAge === 0 ? 'today' : `${backupAge} days ago`}.` : 'No backup yet.'} Back up every Sunday.</p><button class="btn btn-primary btn-block" data-act="export-json">Back up now</button>`, backupAge == null || backupAge >= 7 ? 'card-warn' : '');
+  const CI = { good: '<path d="M5 12.5 10 17l9-10"/>', warn: '<path d="M12 4 3 20h18z"/><path d="M12 10v4M12 17v.01"/>', info: '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>' };
+  html += `<div class="pw-kick">Coaching</div>${msgs.map((m) => `<div class="ci-coach t-${m.tone}"><svg viewBox="0 0 24 24" aria-hidden="true">${CI[m.tone] || CI.info}</svg><p>${U.esc(m.text)}</p></div>`).join('')}`;
+  html += `<div class="pw-kick">Your notes</div>` + card(`<textarea rows="5" data-input="checkin-notes" data-n="${n}" placeholder="How did the week go? Energy, sleep, hunger, niggles, wins.">${U.esc(state.checkins[n]?.notes || '')}</textarea><p class="muted small">Saves as you type.</p>`, 'td-card');
+  const ok = backupAge != null && backupAge < 7;
+  html += `<div class="ci-backup ${ok ? 'ok' : 'warn'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/>${ok ? '<path d="m8.5 12 2.5 2.5 4.5-5"/>' : '<path d="M12 8v4.5M12 15.5v.01"/>'}</svg>
+    <span><b>${last ? `Last backup ${backupAge === 0 ? 'today' : `${backupAge} day${backupAge === 1 ? '' : 's'} ago`}` : 'No backup yet'}</b><small>Back up every Sunday.</small></span>
+    <button class="btn btn-primary" data-act="export-json">Back up</button></div>`;
   return { title: `Week ${n} check-in`, html };
 }
 

@@ -2,6 +2,9 @@
 import { state } from '../store.js';
 import * as U from '../util.js';
 import { nutritionCard } from './today.js';
+import { NUTRITION_ITEMS, nutritionScore } from '../plan.js';
+import { rings } from '../core.js';
+import { pageHero } from '../visual.js';
 
 const ICON = {
   kcal: '<path d="M24 6c2 7 10 10 10 20a10 10 0 0 1-20 0c0-5 3-8 5-11 1 4 3 5 5 6 0-6-2-10 0-15z"/>',
@@ -49,8 +52,9 @@ function typicalDay() {
 
 function portions() {
   const P = [['Palm', 'of protein', 'Two at lunch and dinner'], ['Fist', 'of carbs', 'Add half on run days'], ['2 fists', 'of veg', 'At lunch and dinner'], ['Thumb', 'of fats', 'Oils, nuts, avocado']];
+  const HI = ['<path d="M8 21v-9l-2-4a1.5 1.5 0 0 1 2.6-1.5L10 9V4.5a1.5 1.5 0 0 1 3 0V9h0V3.5a1.5 1.5 0 0 1 3 0V10V5a1.5 1.5 0 0 1 3 0v8c0 4-2.5 8-6 8z"/>', '<rect x="5" y="7" width="13" height="12" rx="4"/><path d="M8 7V5.5M11 7V5M14 7V5.5"/>', '<rect x="3" y="8" width="8" height="10" rx="3"/><rect x="13" y="8" width="8" height="10" rx="3"/>', '<path d="M9 20v-8a3 3 0 0 1 6 0v8z"/><path d="M10 10a2 2 0 0 1 4 0"/>'];
   return `<div class="sec-h"><span>Portions by hand</span><small>No scales needed</small></div>
-    <div class="hands">${P.map(([a, b, c]) => `<div class="hand"><b class="disp">${a}</b><span>${b}</span><small>${c}</small></div>`).join('')}</div>`;
+    <div class="hands">${P.map(([a, b, c], i) => `<div class="hand hc${i}"><span class="hand-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${HI[i]}</svg></span><b class="disp">${a}</b><span>${b}</span><small>${c}</small></div>`).join('')}</div>`;
 }
 
 function carousel(title, items, tone) {
@@ -69,7 +73,9 @@ function guide(ic, title, sub, body, tone) {
 
 export function renderFood() {
   const N = state.nutrition;
-  let html = `<div class="page-head"><div class="disp disp-lg">Food</div><div class="muted">Protein first. A flexible framework, not a fixed meal plan.</div></div>`;
+  const score = nutritionScore(U.today());
+  let html = pageHero({ kick: 'Protein first', title: 'Food', sub: 'A flexible framework, not a fixed meal plan.', cls: 'pg-food',
+    side: `<div class="pg-ring">${rings([{ pct: score / NUTRITION_ITEMS.length, color: '#38bdf8' }], `${score}/${NUTRITION_ITEMS.length}`, '', 104)}<small>today</small></div>` });
   html += targets();
   html += nutritionCard(U.today());
   html += typicalDay();

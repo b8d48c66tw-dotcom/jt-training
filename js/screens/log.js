@@ -3,7 +3,7 @@ import { state } from '../store.js';
 import * as P from '../plan.js';
 import * as U from '../util.js';
 import { on, ui, rerender } from '../core.js';
-import { activityThumb, graphic, pic } from '../visual.js';
+import { activityThumb, graphic, pic, pageHero } from '../visual.js';
 
 const FILTERS = [['all', 'All'], ['run', 'Runs'], ['strength', 'Strength'], ['cricket', 'Cricket'], ['cardio', 'Cardio'], ['days', 'Daily']];
 const WORKOUT = ['run', 'strength', 'cardio', 'other'];
@@ -31,12 +31,8 @@ function weekGlance() {
   const km = acts.filter((a) => a.type === 'run').reduce((s, a) => s + (a.distanceKm || 0), 0);
   const min = acts.reduce((s, a) => s + (a.durationSec || 0), 0) / 60;
   const total = state.activities.filter((a) => WORKOUT.includes(a.type) && a.date.startsWith(String(new Date().getFullYear()))).length;
-  return `<div class="page-head"><div class="disp disp-lg">Log</div><div class="muted">${total} workouts logged this year</div></div>
-    <div class="glance">
-      <div><span class="kick">This week</span><b>${sessions}</b><small>sessions</small></div>
-      <div><span class="kick">Run</span><b>${U.round1(km)}</b><small>km</small></div>
-      <div><span class="kick">Active</span><b>${Math.round(min)}</b><small>minutes</small></div>
-    </div>`;
+  return pageHero({ kick: 'Training log', title: 'Log', sub: `${total} workouts this year. This week:`, cls: 'pg-log',
+    stats: [[sessions, 'sessions'], [U.round1(km), 'km run'], [Math.round(min), 'active min']] });
 }
 
 function quickAdd() {
@@ -45,9 +41,9 @@ function quickAdd() {
     return img ? pic(img, 'qa-pic') : graphic('strength', 'qa-pic');
   };
   const typePic = (t, g) => pic(P.typeImg(t), 'qa-pic') || graphic(g, 'qa-pic');
-  const tile = (href, pic, label) => `<a class="qa" href="${href}">${pic}<span>${label}</span></a>`;
-  return `<div class="sec-h"><span>Add a log</span><small>Quick add</small></div>
-    <div class="qa-row">
+  const tile = (href, pic, label) => `<a class="qa" href="${href}">${pic}<span>${label}</span><i>+</i></a>`;
+  return `<div class="sec-h"><span>Add a log</span><small>Swipe for more</small></div>
+    <div class="qa-row qa-car">
       ${tile('#/new/run', typePic('run', 'run'), 'Run')}
       ${tile('#/new/strengthA', photo('strengthA'), 'Strength A')}
       ${tile('#/new/strengthB', photo('strengthB'), 'Strength B')}

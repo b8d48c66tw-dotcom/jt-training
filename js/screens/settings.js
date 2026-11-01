@@ -133,11 +133,10 @@ export function renderSettings() {
   const last = state.meta.lastBackup;
   const age = last ? U.diffDays(last.slice(0, 10), U.today()) : null;
   const P2 = state.program;
-  let html = `<div class="page-head"><div class="disp disp-lg">Settings</div><div class="muted">Your goals, the program, sounds and backups.</div></div>`;
-
-  // Profile / goal hero
-  html += `<div class="set-hero">
-    <div class="sh-top"><span class="sh-av">JT</span><div><div class="disp sh-name">${U.esc(s.name || 'Josh')}</div><div class="muted">${s.startWeight} kg to <b class="teal">${s.goalWeight} kg</b> by ${U.fmtDate(s.goalDate)}</div></div></div>
+  // Profile / goal banner
+  let html = `<div class="set-hero pg-hero pg-set">
+    <div class="pg-kick">Settings</div>
+    <div class="sh-top"><span class="sh-av">JT</span><div><div class="disp sh-name">${U.esc(s.name || 'Josh')}</div><div class="pg-sub">${s.startWeight} kg to <b>${s.goalWeight} kg</b> by ${U.fmtDate(s.goalDate)}</div></div></div>
     <div class="tags sh-tags"><span class="tag">${s.targets.kcal.toLocaleString('en-AU')} kcal</span><span class="tag">${s.targets.proteinLow}-${s.targets.proteinHigh} g protein</span><span class="tag">HR &lt; ${s.hrCapHigh}</span><span class="tag">${s.timing.sessionMinutes} min sessions</span></div>
     <a class="cta cta-ghost cta-block" href="#/edit/targets">Edit goals and timings</a>
   </div>`;
