@@ -863,3 +863,63 @@ img.ill, .flip.ill { background: var(--ill-bg); object-fit: cover; }
 .timer:has(.flip-bg.studio) .pl-shade { display: none; }
 .timer.k-start .pl-bg:has(.flip-bg.studio) { display: none; }
 .jr-hero img[src*="img/ai/"] { object-position: center 70%; }
+
+/* =================== Live workout screen (v2) =================== */
+.timer.pl2 { padding: 0; background: #0a1020; --kc: #5eead4; --kc-soft: rgba(94, 234, 212, .16); }
+.timer.pl2.k-ready, .timer.pl2.k-warm, .timer.pl2.k-easy, .timer.pl2.k-walk { --kc: #7dd3fc; --kc-soft: rgba(125, 211, 252, .16); }
+.timer.pl2.k-rest { --kc: #a78bfa; --kc-soft: rgba(167, 139, 250, .16); }
+.timer.pl2.k-switch { --kc: #fbbf24; --kc-soft: rgba(251, 191, 36, .16); }
+.timer.pl2.k-hard, .timer.pl2.k-tempo, .timer.pl2.k-stride { --kc: #fb7185; --kc-soft: rgba(251, 113, 133, .16); }
+.pl2-hero { position: relative; flex: 1 1 auto; min-height: 170px; max-height: 44vh; overflow: hidden; background: #0b1222; }
+.pl2-photo { position: absolute; inset: 0; }
+.pl2-photo .flip-bg { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; margin: 0; border-radius: 0; background: #0b1222; }
+.pl2-photo .flip-bg img { object-fit: contain; object-position: center bottom; }
+.pl2-photo .flip-bg { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 78%, transparent 100%); }
+@media (min-aspect-ratio: 1/1) { .pl2-photo .flip-bg { -webkit-mask-image: none; mask-image: none; } }
+.pl2-fade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10, 16, 32, .75) 0%, rgba(10, 16, 32, 0) 26%, rgba(10, 16, 32, 0) 62%, #0a1020 100%); }
+.pl2-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 0; }
+.pl2-x { width: 40px; height: 40px; min-height: 40px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .14); color: #fff; font-size: 17px; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); flex: none; }
+.pl2-sec { flex: 1; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+.pl2-time { font-size: 13px; font-weight: 800; color: rgba(255, 255, 255, .85); font-variant-numeric: tabular-nums; background: rgba(255, 255, 255, .14); padding: 6px 10px; border-radius: 999px; white-space: pre; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pl2-bar { position: absolute; left: 14px; right: 14px; top: calc(58px + env(safe-area-inset-top)); display: flex; gap: 4px; }
+.pl2-bar i { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; min-width: 6px; }
+.pl2-bar b { display: block; height: 100%; width: 0; background: var(--kc); border-radius: 2px; transition: width .4s linear; }
+.pl2-badge { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: var(--kc); color: #0a1020; font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; }
+.pl2-body { flex: none; padding: 2px 18px 6px; display: flex; flex-direction: column; gap: 8px; }
+.pl2-kind { align-self: flex-start; font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--kc); background: var(--kc-soft); padding: 5px 11px; border-radius: 999px; }
+.pl2-name { font-size: clamp(26px, 7.4vw, 36px); line-height: 1.02; color: #fff; }
+.pl2-row { display: flex; align-items: center; gap: 16px; }
+.pl2-ring { position: relative; width: 132px; height: 132px; flex: none; }
+.pl2-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pl2-ring circle { fill: none; stroke-width: 9; }
+.pl2-ring .rt { stroke: rgba(255, 255, 255, .1); }
+.pl2-ring .rp { stroke: var(--kc); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 0; transition: stroke-dashoffset .3s linear, stroke .3s; filter: drop-shadow(0 0 6px var(--kc-soft)); }
+.pl2-clock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pl2-clock b { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; }
+.pl2-clock small { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); margin-top: 4px; }
+.timer.pl2.paused .pl2-clock b { opacity: .45; }
+.pl2-chips { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.pl2-chips span { font-size: 15px; font-weight: 800; color: #fff; background: rgba(255, 255, 255, .08); border-radius: 12px; padding: 7px 12px; }
+.pl2-chips span:first-child { background: var(--kc-soft); color: var(--kc); }
+.pl2-cue { font-size: 14px; line-height: 1.35; color: rgba(255, 255, 255, .78); }
+.pl2-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.pl2-cue:empty, .pl2-chips:empty, .pl2-kind:empty { display: none; }
+.timer.pl2 .pl-sheet { margin: 0; }
+.pl2-next { display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, .06); border-radius: 18px; padding: 8px 12px 8px 8px; }
+.pl2-next img, .pl2-dot { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; object-position: center 68%; flex: none; background: #0b1222; }
+.pl2-next span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl2-next small { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.pl2-next b { font-size: 16px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl2-next em { font-style: normal; font-weight: 800; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; }
+.pl2-ctrl { flex: none; display: flex; align-items: center; justify-content: center; gap: 28px; padding: 8px 18px calc(14px + env(safe-area-inset-bottom)); }
+.pl2-btn, .pl2-play { border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.pl2-btn { width: 58px; height: 58px; min-height: 58px; background: rgba(255, 255, 255, .1); }
+.pl2-play { width: 78px; height: 78px; min-height: 78px; background: var(--kc); box-shadow: 0 10px 30px var(--kc-soft); }
+.pl2-btn svg, .pl2-play svg { width: 26px; height: 26px; fill: #fff; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pl2-play svg { width: 32px; height: 32px; fill: #0a1020; stroke: none; }
+@media (max-height: 700px) { .pl2-ring { width: 112px; height: 112px; } .pl2-clock b { font-size: 34px; } .pl2-cue { display: none; } }
+/* Steps with no targets or cue (runs, intervals): a larger centred ring. */
+.pl2-row:has(.pl2-chips:empty):has(.pl2-cue:empty) { justify-content: center; }
+.pl2-row:has(.pl2-chips:empty):has(.pl2-cue:empty) .pl2-side { display: none; }
+.pl2-row:has(.pl2-chips:empty):has(.pl2-cue:empty) .pl2-ring { width: 176px; height: 176px; }
+.pl2-row:has(.pl2-chips:empty):has(.pl2-cue:empty) .pl2-clock b { font-size: 54px; }

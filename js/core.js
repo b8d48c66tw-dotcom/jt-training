@@ -176,38 +176,60 @@ function renderSheet(el, sg) {
   box.hidden = false;
 }
 
+const ICON = {
+  prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14"/><path d="M19 5 9 12l10 7z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14"/><path d="m5 5 10 7-10 7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+};
+const RECOVER = ['rest', 'ready', 'switch', 'walk', 'easy'];
+
 function renderRunning(v) {
   const el = document.getElementById('timer');
   const sg = v.seg;
   if (v.finished) return renderDone(el, v);
-  if (!el.querySelector('.t-main.live')) {
+  if (!el.querySelector('.pl2-body')) {
     el.innerHTML = `
-      <div class="pl-bg" data-r="bg"></div><div class="pl-shade"></div>
-      <div class="pl-top"><span class="pl-time" data-r="top"></span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
-      <div class="pl-bar">${active.sections.map((sec, i) => `<i style="flex:${sec.total}" title="${U.esc(sec.name)}"><b data-sec="${i}"></b></i>`).join('')}</div>
-      <div class="t-main live">
-        <div class="pl-kind" data-r="kind"></div>
-        <div class="disp pl-label" data-r="label"></div>
-        <div class="pl-sub" data-r="sub"></div>
-        <div class="pl-clock" data-r="big"></div>
-        <div class="pl-cue" data-r="cue"></div>
-        <div class="pl-next" data-r="next"></div>
+      <div class="pl2-hero">
+        <div class="pl2-photo" data-r="bg"></div>
+        <div class="pl2-fade"></div>
+        <div class="pl2-top">
+          <button class="pl2-x" data-act="timer-close" aria-label="Close timer">&#10005;</button>
+          <span class="pl2-sec" data-r="sec"></span>
+          <span class="pl2-time" data-r="top"></span>
+        </div>
+        <div class="pl2-bar">${active.sections.map((sec, i) => `<i style="flex:${sec.total}" title="${U.esc(sec.name)}"><b data-sec="${i}"></b></i>`).join('')}</div>
+        <span class="pl2-badge" data-r="badge" hidden>Up next</span>
       </div>
-      <div class="pl-sheet" data-r="sheet" hidden></div>
-      <div class="t-ctrl">
-        <button class="btn btn-lg" data-act="timer-prev" aria-label="Previous">&#9664;&#9664;</button>
-        <button class="btn btn-xl" data-act="timer-pause" data-r="pause"></button>
-        <button class="btn btn-lg" data-act="timer-next" aria-label="Next">&#9654;&#9654;</button>
+      <div class="pl2-body">
+        <span class="pl2-kind" data-r="kind"></span>
+        <div class="disp pl2-name" data-r="label"></div>
+        <div class="pl2-row">
+          <div class="pl2-ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="53"/><circle class="rp" data-r="ring" cx="60" cy="60" r="53" pathLength="100"/></svg>
+            <div class="pl2-clock"><b data-r="big"></b><small data-r="ringsub"></small></div>
+          </div>
+          <div class="pl2-side"><div class="pl2-chips" data-r="chips"></div><div class="pl2-cue" data-r="cue"></div></div>
+        </div>
+        <div class="pl-sheet" data-r="sheet" hidden></div>
+        <div class="pl2-next" data-r="next"></div>
+      </div>
+      <div class="pl2-ctrl">
+        <button class="pl2-btn" data-act="timer-prev" aria-label="Previous step">${ICON.prev}</button>
+        <button class="pl2-play" data-act="timer-pause" data-r="pause" aria-label="Pause">${ICON.pause}</button>
+        <button class="pl2-btn" data-act="timer-next" aria-label="Next step">${ICON.next}</button>
       </div>`;
   }
-  const set = (r, text) => { const n = el.querySelector(`[data-r="${r}"]`); if (n && n.textContent !== text) n.textContent = text; };
-  el.className = `timer player k-${sg.k || 'run'}${v.paused ? ' paused' : ''}`;
+  const q = (r) => el.querySelector(`[data-r="${r}"]`);
+  const set = (r, text) => { const n = q(r); if (n && n.textContent !== text) n.textContent = text; };
+  const html = (r, h) => { const n = q(r); if (n && n.dataset.h !== h) { n.dataset.h = h; n.innerHTML = h; } };
+  el.className = `timer player pl2 k-${sg.k || 'run'}${RECOVER.includes(sg.k) ? ' recover' : ''}${v.paused ? ' paused' : ''}`;
   // Progress: fixed-length time done so far, per section.
   let doneSec = 0;
   for (let i = 0; i < v.idx; i++) doneSec += segLen(active.segs[i]);
   doneSec += Math.min(v.elapsed, segLen(sg));
   const pct = Math.min(100, Math.round((doneSec / active.fixedTotal) * 100));
-  set('top', `${U.fmtDuration(v.totalElapsed)} - ${pct}%`);
+  set('top', `${U.fmtDuration(v.totalElapsed)}  ${pct}%`);
   let acc = 0;
   active.sections.forEach((sec, i) => {
     const fill = Math.max(0, Math.min(1, (doneSec - acc) / sec.total));
@@ -215,19 +237,39 @@ function renderRunning(v) {
     const b = el.querySelector(`[data-sec="${i}"]`);
     if (b) b.style.width = `${Math.round(fill * 100)}%`;
   });
-  const roundTxt = sg.round ? ` - Round ${sg.round} of ${sg.rounds}` : sg.finRound ? ` - ${sg.finRound} of ${sg.finRounds}` : '';
-  set('kind', `${KIND_LABEL[sg.k] || ''}${roundTxt}`);
-  set('label', (sg.l || '').replace(/^Get ready: /, ''));
+  const secName = sectionOf(sg);
+  set('sec', sg.round ? `Round ${sg.round} of ${sg.rounds}` : sg.finRound ? `${secName} ${sg.finRound} of ${sg.finRounds}` : secName === 'Main' ? active.title.replace(/ - \d+ rounds$/, '') : secName);
+  const kindTxt = KIND_LABEL[sg.k] || '';
+  set('kind', kindTxt.toLowerCase() === secName.toLowerCase() ? '' : kindTxt);
+  // Rests: short title, the rest of the label becomes the cue ("Round rest - water and breathe").
+  const [title0, ...restOfLabel] = (sg.l || '').replace(/^Get ready: /, '').split(' - ');
+  const isRest = sg.k === 'rest';
+  set('label', isRest ? title0 : (sg.l || '').replace(/^Get ready: /, ''));
+  // Countdown ring: the remaining share of this step (count-up steps show a full, dimmed ring).
+  const frac = sg.s ? Math.max(0, Math.min(1, v.remaining / sg.s)) : 1;
+  q('ring').style.strokeDashoffset = String(100 - frac * 100);
   set('big', sg.s ? U.fmtDuration(Math.ceil(v.remaining)) : U.fmtDuration(v.elapsed));
-  set('sub', sg.s ? sg.sub || '' : `${sg.sub ? `${sg.sub} - ` : ''}counting up - tap Next when done`);
-  set('cue', sg.k === 'work' || sg.k === 'hold' || sg.k === 'warm' ? sg.cue || '' : '');
-  set('next', v.next ? `Next: ${v.next.l.replace(/^Get ready: /, '')}${v.next.s ? ` - ${U.fmtDuration(v.next.s)}` : ''}` : 'Last step');
-  set('pause', v.paused ? 'Resume' : 'Pause');
-  // Background photo: this exercise, or the next one during rests.
+  set('ringsub', sg.s ? (v.paused ? 'paused' : 'left') : 'tap next');
+  // Target chips: the step's detail (reps, side, round info) plus the weight.
+  const parts = (sg.sub || '').split(/ - (?=[A-Za-z])/).map((t) => t.trim().replace(/^Round (\d+) of (\d+) next: .*$/i, 'Next: round $1 of $2')).filter(Boolean);
+  if (sg.load && sg.kg) parts.push(`${sg.kg} kg`);
+  html('chips', parts.map((t) => `<span>${U.esc(t)}</span>`).join(''));
+  const restCue = restOfLabel.join(' - ');
+  set('cue', sg.k === 'work' || sg.k === 'hold' || sg.k === 'warm' ? sg.cue || '' : isRest && restCue ? restCue.charAt(0).toUpperCase() + restCue.slice(1) + '.' : '');
+  // Up next: thumbnail, name and length of the following step.
+  const clean = (t) => (t || '').replace(/^Get ready: /, '');
+  let nx = v.next;
+  if (nx && clean(nx.l) === clean(sg.l)) nx = active.segs[v.idx + 2] || null;
+  html('next', nx ? `${nx.img ? `<img src="${P.imgSrc(nx.img, 1)}" alt="">` : '<i class="pl2-dot"></i>'}<span><small>Up next</small><b>${U.esc(clean(nx.l))}</b></span><em>${nx.s ? U.fmtDuration(nx.s) : ''}</em>` : '<span><small>Up next</small><b>Last step - finish strong</b></span>');
+  const pb = q('pause');
+  const want = v.paused ? 'play' : 'pause';
+  if (pb.dataset.i !== want) { pb.dataset.i = want; pb.innerHTML = ICON[want]; pb.setAttribute('aria-label', v.paused ? 'Resume' : 'Pause'); }
+  // Photo: this exercise, or the next one during rests (with an "Up next" badge).
   const img = sg.img || (sg.k === 'rest' ? v.next?.img : null) || null;
+  q('badge').hidden = !(isRest && img);
   if (active.shownImg !== img) {
     active.shownImg = img;
-    el.querySelector('[data-r="bg"]').innerHTML = flip(img, 'flip-bg');
+    q('bg').innerHTML = flip(img, 'flip-bg');
   }
   if (active.meta?.guided) {
     if (active.lastIdx !== v.idx) { fillSets(v.idx); active.lastIdx = v.idx; }
