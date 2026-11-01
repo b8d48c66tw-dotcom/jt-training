@@ -122,19 +122,38 @@ export function openTimer({ title, segments, planId = null, onDoneHash = null, s
   const bgImg = segs.find((sg) => sg.k === 'work' && sg.img)?.img || segs.find((sg) => sg.img)?.img;
   el.hidden = false;
   document.body.classList.add('no-scroll');
-  el.className = 'timer k-start';
+  el.className = 'timer ss';
+  const name = title.replace(/ - \d+ rounds$/, '');
+  const rounds = segs.find((sg) => sg.rounds)?.rounds;
+  const exCount = new Set(segs.filter((sg) => sg.k === 'work' && sg.ex != null).map((sg) => sg.ex)).size;
+  const kind = meta?.guided ? 'Guided strength' : meta?.mobilityDate ? 'Mobility' : photo === 'run' ? 'Run' : fallback ? 'Finisher' : 'Session';
+  const date = meta?.date || meta?.mobilityDate || (planId ? planId.slice(0, 10) : null);
+  const stats = [
+    [total ? Math.round(total / 60) : '-', total ? `min${hasOpen ? ' +' : ''}` : 'open'],
+    ...(rounds ? [[rounds, 'rounds']] : []),
+    exCount ? [exCount, 'exercises'] : [segs.length, 'steps'],
+  ];
+  // Generic step list: kind dot, label and length (drill photos where each step has its own).
+  const steps = `<ol class="ss-steps">${segs.slice(0, 40).map((sg) => `<li class="k-${sg.k || 'run'}">${!fallback && sg.img ? `<img src="${P.imgSrc(sg.img, 1)}" alt="">` : '<i></i>'}<span>${U.esc(sg.l)}${sg.round ? ` <small>${sg.round}/${sg.rounds}</small>` : ''}</span><b>${sg.s ? U.fmtDuration(sg.s) : 'tap next'}</b></li>`).join('')}${segs.length > 40 ? `<li class="ss-more"><i></i><span>${segs.length - 40} more steps</span></li>` : ''}</ol>`;
   el.innerHTML = `
-    ${bgImg ? `<div class="pl-bg">${flip(bgImg, 'flip-bg')}</div><div class="pl-shade"></div>` : ''}
-    <div class="t-top"><span class="t-title">${U.esc(title)}</span><button class="t-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
-    <div class="t-ready">
-      <div class="disp pl-start-title">${U.esc(title.replace(/ - \d+ rounds$/, ''))}</div>
-      <div class="t-sum">${total ? `About ${Math.round(total / 60)} min${hasOpen ? ' plus open-ended steps' : ''}` : `${segs.length} steps`}</div>
-      ${summary || `<ol class="t-list">${segs.slice(0, 40).map((sg) => `<li><span>${U.esc(sg.l)}${sg.round ? ` (${sg.round}/${sg.rounds})` : ''}</span><b>${sg.s ? U.fmtDuration(sg.s) : 'tap Next'}</b></li>`).join('')}${segs.length > 40 ? '<li>...</li>' : ''}</ol>`}
-      ${state.settings.musicUrl ? '<button class="btn btn-block t-music" data-act="open-music">Open my workout playlist</button>' : ''}
-      <p class="t-note">Keep this screen open - it stays awake and gives cues at each change. If the phone locks, the timer catches up when you unlock it.</p>
-      <button class="cta cta-block" data-act="timer-start">Start</button>
-    </div>`;
-  active = { segs, title, planId, onDoneHash, timer: null, shownImg: undefined, meta, sections: buildSections(segs), sets: {}, sheetKey: null, effort: 7 };
+    <div class="ss-hero">
+      ${bgImg ? `<div class="pl2-photo">${flip(bgImg, 'flip-bg')}</div>` : ''}
+      <div class="ss-fade"></div>
+      <div class="pl2-top"><button class="pl2-x" data-act="timer-close" aria-label="Close timer">&#10005;</button></div>
+      <div class="ss-head">
+        <span class="ss-kind">${kind}${date ? ` <em>${U.fmtDateLong(date)}</em>` : ''}</span>
+        <div class="disp ss-title">${U.esc(name)}</div>
+      </div>
+    </div>
+    <div class="ss-body">
+      <div class="ss-stats">${stats.map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join('')}</div>
+      <div class="ss-kick">The plan</div>
+      ${summary || steps}
+      ${state.settings.musicUrl ? '<button class="ss-music" data-act="open-music"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l11-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Open my workout playlist</button>' : ''}
+      <p class="ss-note">Keep this screen open. It stays awake and gives a cue at each change, and catches up if the phone locks.</p>
+    </div>
+    <div class="ss-cta"><button class="cta cta-block" data-act="timer-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>Start</button></div>`;
+  active = { segs, title, planId, onDoneHash, timer: null, shownImg: undefined, meta, bgImg, sections: buildSections(segs), sets: {}, sheetKey: null, effort: 7 };
   active.fixedTotal = segs.reduce((a, sg) => a + segLen(sg), 0);
 }
 
@@ -329,48 +348,59 @@ function guidedSummaryData() {
 function renderDone(el, v) {
   if (active.doneShown) return;
   active.doneShown = true;
-  el.className = 'timer player k-done';
+  el.className = 'timer dn';
   const guided = active.meta?.guided;
   const mobilityDate = active.meta?.mobilityDate;
   if (mobilityDate) { day(mobilityDate).mobility = true; saveState(); }
   const hasThisWeek = state.activities.some((a) => ['strength', 'run', 'cardio'].includes(a.type) && U.mondayOf(a.date) === U.mondayOf(U.today()));
   const streak = weekStreak() + (hasThisWeek ? 0 : 1);
   const title = active.title.replace(/ - \d+ rounds$/, '');
-  let body;
+  const tile = (b, s, cls = '') => `<div class="${cls}"><b>${b}</b><span>${s}</span></div>`;
+  let stats, extra = '', ctas;
   if (guided) {
     const d = active.summaryData = guidedSummaryData();
     const vol = d.volume >= 1000 ? `${U.round1(d.volume / 1000)}k` : String(Math.round(d.volume));
-    body = `<div class="stats3">
-        <div><b>${U.fmtDuration(d.sec)}</b><span>Total time</span></div>
-        <div><b>${vol}</b><span>Kg lifted</span></div>
-        <div><b>${d.totalReps}</b><span>Total reps</span></div>
-        <div><b>${d.rounds}/${active.segs.find((x) => x.rounds)?.rounds || d.rounds}</b><span>Rounds</span></div>
-        <div><b>${d.fin ? '&#10003;' : '-'}</b><span>Finisher</span></div>
-        <div><b>${d.pbs ? `+${d.pbs}` : '0'}</b><span>Heavier lifts</span></div>
-      </div>
-      <div class="kick done-q">How hard was it?</div>
-      <div class="effort">${[5, 6, 7, 8, 9].map((n) => `<button class="${n === active.effort ? 'on' : ''}" data-act="done-effort" data-v="${n}">${n}</button>`).join('')}</div>
-      <button class="cta cta-block" data-act="done-save">Save session</button>
-      <button class="btn btn-ghost btn-block" data-act="timer-log">Edit details first</button>`;
+    stats = `<div class="wide"><p><b>${U.fmtDuration(d.sec)}</b><span>Total time</span></p><p><b>${d.rounds}/${active.segs.find((x) => x.rounds)?.rounds || d.rounds}</b><span>Rounds</span></p></div>`
+      + tile(vol, 'Kg lifted') + tile(d.totalReps, 'Reps') + tile(d.fin ? '&#10003;' : '-', 'Finisher') + tile(d.pbs ? `+${d.pbs}` : '0', 'Heavier lifts', d.pbs ? 'hi' : '');
+    extra = `<div class="dn-effort">
+        <div class="dn-q"><span>How hard was it?</span><b data-r="eff">${EFFORT[active.effort]}</b></div>
+        <div class="effort">${[5, 6, 7, 8, 9].map((n) => `<button class="${n === active.effort ? 'on' : ''}" data-act="done-effort" data-v="${n}">${n}</button>`).join('')}</div>
+        <div class="dn-scale"><span>Comfortable</span><span>All out</span></div>
+      </div>`;
+    ctas = '<button class="cta cta-block" data-act="done-save">Save session</button><button class="dn-link" data-act="timer-log">Edit details first</button>';
   } else if (mobilityDate) {
-    body = `<div class="stats3 two"><div><b>${U.fmtDuration(v.totalElapsed)}</b><span>Total time</span></div><div><b>&#10003;</b><span>Mobility ticked</span></div></div>
-      <button class="cta cta-block" data-act="timer-close">Done</button>`;
+    stats = tile(U.fmtDuration(v.totalElapsed), 'Total time') + tile('&#10003;', 'Mobility ticked');
+    ctas = '<button class="cta cta-block" data-act="timer-close">Done</button>';
   } else {
-    body = `<div class="stats3 two"><div><b>${U.fmtDuration(v.totalElapsed)}</b><span>Total time</span></div><div><b>${streak}</b><span>Week streak</span></div></div>
-      ${active.onDoneHash ? '<button class="cta cta-block" data-act="timer-log">Log it</button>' : '<button class="cta cta-block" data-act="timer-close">Done</button>'}`;
+    stats = tile(U.fmtDuration(v.totalElapsed), 'Total time') + tile(streak, 'Week streak');
+    ctas = active.onDoneHash ? '<button class="cta cta-block" data-act="timer-log">Log it</button>' : '<button class="cta cta-block" data-act="timer-close">Done</button>';
   }
-  el.innerHTML = `<div class="t-top"><span class="t-title"></span><button class="t-x" data-act="timer-close" aria-label="Close">&#10005;</button></div>
-    <div class="done">
-      <div class="badge"><div class="disp">${mobilityDate ? 'Mobility<br>done' : 'Session<br>complete'}</div></div>
-      ${mobilityDate ? '' : `<div class="streak">&#9889; ${streak} week streak ${'<i></i>'.repeat(Math.min(streak, 6))}</div>`}
-      <div class="kick">${U.fmtDateLong(active.meta?.date || active.meta?.mobilityDate || (active.planId ? active.planId.slice(0, 10) : U.today()))}</div>
-      <div class="disp done-title">${U.esc(title)}</div>
-      ${body}
-    </div>`;
+  const confetti = Array.from({ length: 14 }, (_, i) => `<i style="--a:${i * 360 / 14}deg;--d:${70 + (i % 3) * 18}px;--c:${['#5eead4', '#7dd3fc', '#a78bfa', '#fbbf24'][i % 4]}"></i>`).join('');
+  el.innerHTML = `
+    <div class="dn-hero">
+      ${active.bgImg ? `<div class="pl2-photo">${flip(active.bgImg, 'flip-bg')}</div>` : ''}
+      <div class="dn-fade"></div>
+      <div class="pl2-top"><button class="pl2-x" data-act="timer-close" aria-label="Close">&#10005;</button></div>
+      <div class="dn-badge">
+        <div class="dn-burst">${confetti}</div>
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rt" cx="60" cy="60" r="52"/><circle class="rp" cx="60" cy="60" r="52" pathLength="100"/><path class="ck" d="M40 61 54 75 81 46" pathLength="100"/></svg>
+      </div>
+    </div>
+    <div class="dn-body">
+      <span class="ss-kind">${mobilityDate ? 'Mobility done' : 'Session complete'} <em>${U.fmtDateLong(active.meta?.date || mobilityDate || (active.planId ? active.planId.slice(0, 10) : U.today()))}</em></span>
+      <div class="disp dn-title">${U.esc(title)}</div>
+      ${mobilityDate ? '' : `<div class="dn-streak"><span>&#9889; ${streak} week streak</span><span class="dn-dots">${Array.from({ length: 6 }, (_, i) => `<i class="${i < streak ? 'on' : ''}"></i>`).join('')}</span></div>`}
+      <div class="dn-stats${guided ? '' : ' two'}">${stats}</div>
+      ${extra}
+    </div>
+    <div class="ss-cta">${ctas}</div>`;
 }
+const EFFORT = { 5: 'Comfortable', 6: 'Steady', 7: 'Solid work', 8: 'Hard', 9: 'Very hard' };
 on('done-effort', (el) => {
   active.effort = Number(el.dataset.v);
   el.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b === el));
+  const lbl = document.querySelector('[data-r="eff"]');
+  if (lbl) lbl.textContent = EFFORT[active.effort];
 });
 on('done-save', () => {
   const d = active.summaryData;

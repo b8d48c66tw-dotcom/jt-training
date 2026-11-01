@@ -27,17 +27,19 @@ export function guidedCard(key, n, date, planId, hash) {
 function guidedSummary(g, date, n, names) {
   const exs = g.info.def.exercises.map((id) => P.exerciseById(id)).filter(Boolean).map((e) => P.exerciseForWeek(e, n));
   const T = state.settings.timing;
-  return `<ul class="t-plan">
-    <li><b>Warm-up</b> ${Math.round((g.info.def.warmupSteps?.reduce((a, x) => a + x.s, 0) || T.warmup) / 60)} min, guided</li>
-    <li><b>${g.rounds} rounds</b> of ${exs.length} exercises${g.compress ? ' (shorter rests)' : ''}</li>
+  const stage = (k, title, sub) => `<li class="ss-stage k-${k}"><i></i><span><b>${title}</b><small>${sub}</small></span></li>`;
+  return `<ol class="ss-plan">
+    ${stage('warm', 'Warm-up', `${Math.round((g.info.def.warmupSteps?.reduce((a, x) => a + x.s, 0) || T.warmup) / 60)} min, guided`)}
+    ${stage('work', 'Circuit', `${g.rounds} rounds of ${exs.length} exercises${g.compress ? ', shorter rests' : ''}`)}
     ${exs.map((ex, i) => {
       const name = names?.[i] || ex.name;
       const kg = ex.load ? P.suggestedWeight(ex, name, date) : null;
-      return `<li class="t-ex">${flip(P.imgFor(name), 'flip-xs') || '<div class="flip-xs flip-none"></div>'}<span>${U.esc(name)}<small>${U.esc(P.fmtTarget(ex))}${kg ? ` - ${kg} kg` : ''}</small></span></li>`;
+      const key = P.imgFor(name);
+      return `<li class="ss-ex">${key ? `<img src="${P.imgSrc(key, 1)}" alt="">` : '<i></i>'}<span><b>${U.esc(name)}</b><small>${U.esc(P.fmtTarget(ex))}</small></span>${kg ? `<em>${kg} kg</em>` : ''}</li>`;
     }).join('')}
-    <li><b>Finisher</b> ${U.esc(g.info.finisher.label)}</li>
-    <li><b>Cool-down</b> ${Math.round((g.compress ? Math.min(T.cooldown, 120) : T.cooldown) / 60)} min</li>
-  </ul>`;
+    ${stage('hard', 'Finisher', U.esc(g.info.finisher.label))}
+    ${stage('cool', 'Cool-down', `${Math.round((g.compress ? Math.min(T.cooldown, 120) : T.cooldown) / 60)} min`)}
+  </ol>`;
 }
 
 on('guided', (el) => {
